@@ -5,13 +5,15 @@
 #' @param p.adjust.Threshold Only SNP-Gene pairs with adjusted p-values meeting
 #' the threshold will be displayed. The default value is 0.05.
 #' @param p.adjust.method Methods for p-value adjusting, one of "bonferroni",
-#' "holm", "hochberg", "hommel" or "BH". The default option is "BH".
+#' "holm", "hochberg", "hommel" or "BH". The default option is "bonferroni".
 #' @param eQTLObject An S4 object of class eQTLObject.
 #' @param gene_ids A gene ID or a list of gene IDS.
 #' @param downstream Being used to match SNPs within a base range defined by the
 #' start position of the specified gene(s) or all genes.
 #' @param upstream Being used to match SNPs within a base range defined by the
 #' end position of the specified gene(s) or all genes.
+#' @param logfc.threshold Represents the minimum beta threshold for fitting
+#' SNP-Gene pairs.
 #'
 #' @importFrom Matrix Matrix
 #' @importFrom MASS glm.nb fitdistr
@@ -20,22 +22,40 @@
 #' @importFrom bbmle mle2
 #' @importFrom gamlss gamlssML
 #' @importFrom pscl zeroinfl
-#' @importFrom stats p.adjust pchisq plogis lm
+#' @importFrom stats p.adjust pchisq plogis lm glm
 #' @importFrom glmmTMB glmmTMB
-#' @importFrom dplyr mutate_all
-#' @importFrom stats glm
+#' @importFrom dplyr mutate_all mutate
+#' @import org.Hs.eg.db
+#' @import org.Mm.eg.db
+#' @import magrittr
+#' @importFrom biomaRt useMart getBM useEnsembl
+#' @importFrom AnnotationDbi mapIds
+#'
 #'
 #' @return A dataframe, each row describes eQTL discovering result of a SNP-Gene
 #' pair.
 #' @export
 #'
 #' @examples
+#' data(testSNP)
+#' data(testSNP)
+#' eqtl <- createQTLObject(snpMatrix = testSNP,
+#'                      genedata = testGene,
+#'                      biClassify = FALSE,
+#'                      species = 'human',
+#'                      group = NULL)
+#' eqtl <- normalizeGene(eqtl, method = "logNormalize")
+#' eqtl <- filterGeneSNP(eqtl,
+#'                       snp.number.of.cells.percent = 2,
+#'                       expression.min = 0,
+#'                       expression.number.of.cells.percent = 2
+#'                       )
 #' eqtl <- callQTL(eqtl,
 #'                 gene_ids = NULL,
 #'                 downstream = NULL,
 #'                 upstream = NULL,
 #'                 p.adjust.method = "bonferroni",
-#'                 useModel = "zinb",
+#'                 useModel = "poisson",
 #'                 p.adjust.Threshold = 0.05,
 #'                 logfc.threshold = 0.1
 #'                 )
@@ -51,6 +71,7 @@ callQTL <- function(
     p.adjust.Threshold = 0.05,
     logfc.threshold = 0.1){
 
+  options(warn = -1)
   if(length(eqtl@filterData) == 0){
     cat("Please filter the data first.")
   }else{
@@ -61,7 +82,7 @@ callQTL <- function(
   species = eQTLObject@species
 
   if(is.null(gene_ids) && is.null(upstream) && is.null(downstream)){
-    return(NULL)
+    NULL
   }else{
     if (!is.null(species) && species != ""){
       if (species == "human"){
@@ -83,7 +104,6 @@ callQTL <- function(
 
   creat_snps_loc <- function(snp.list){
 
-    # Get location for each SNP
     snp_mart <- useMart(biomart = "ENSEMBL_MART_SNP", dataset = snp_dataset)
 
     snps_loc <- getBM(attributes = c("refsnp_id", "chr_name", "chrom_start"),
@@ -97,37 +117,43 @@ callQTL <- function(
 
   creat_gene_loc <- function(gene.list){
 
-    # Get location for each gene
-    gene_mart = useEnsembl(biomart="ensembl",
-                           dataset="hsapiens_gene_ensembl")
+    gene_mart = useEnsembl(biomart = "ensembl",
+                           dataset = gene_dataset)
+    gene.list <- unique(gene.list)
 
-    ensembls <- mapIds(OrgDb,
-                       keys = gene.list,
-                       keytype = "SYMBOL",
-                       column="ENSEMBL")
-    ensembls = as.data.frame(ensembls)
-    ensembls_id = unique(ensembls$ensembls)
+    if(grepl("^ENSG", gene.list[[1]][1])){
+      gene_name = 'ensembl_gene_id'
 
-    #ensembl_gene_id,external_gene_name
-    gene_attributes=c('external_gene_name',
+    }else{
+      gene_name = 'external_gene_name'
+      ensembls <- mapIds(org.Hs.eg.db,
+                         keys = gene.list,
+                         keytype = "SYMBOL",
+                         column = "ENSEMBL",
+                         multiVals = 'first')
+      ensembls = as.data.frame(ensembls)
+      ensembls_id = unique(ensembls$ensembls)
+    }
+
+    gene_attributes=c(gene_name,
                       'chromosome_name',
                       'start_position',
                       'end_position')
-
     gene_loc <- getBM(attributes = gene_attributes,
-                      filters = "external_gene_name",
+                      filters = gene_name,
                       values = gene.list,
                       mart = gene_mart)
 
-    rownames(gene_loc) <- gene_loc[, 1]
+    gene_loc <- gene_loc[grepl("^[0-9]+$", as.character(gene_loc$chromosome_name)), ]
+    rownames(gene_loc) <- NULL
     return(gene_loc)
   }
 
+
   check_snpList <- function(snp.list){
-    if(grepl("^rs", snp.list[[1]][1])){  # chromosome start with "rs"
+    if(grepl("^rs", snp.list[[1]][1])){
       creat_snps_loc(snp.list)
-    } else if(grepl("\\d+:\\d+", snp.list[[1]][1])){  # chr:position
-      # build an empty dataframe
+    } else if(grepl("\\d+:\\d+", snp.list[[1]][1])){
       snps_df <- data.frame(refsnp_id = character(),
                             chr_name = character(),
                             position = numeric(),
@@ -145,9 +171,10 @@ callQTL <- function(
     }
   }
 
+
   snp.list <- rownames(eQTLObject@filterData$snpMat)
   gene.list <- rownames(eQTLObject@filterData$expMat)
-  # When users do not perform cis-eQTL filtering
+
   if(is.null(gene_ids) && is.null(upstream) && is.null(downstream)){
     matched_gene <- gene.list
     matched_snps <- snp.list
@@ -159,54 +186,37 @@ callQTL <- function(
       stop("The input gene_ids contain non-existent gene IDs. Please re-enter.")
     }
   }else if(is.null(gene_ids) && !is.null(upstream) && !is.null(downstream)){
-    if (downstream >= upstream) {
-      stop("downstream should be smaller than upstream.")
+    if (downstream > 0) {
+      stop("downstream should be negative.")
     }
-
-    # 连接数据库，构建snps_loc和gene_loc
-
-    # Get location for each SNP
     snps_loc <- check_snpList(snp.list)
-
     gene_loc <- creat_gene_loc(gene.list)
 
-    # 遍历基因和SNP，匹配在基因范围内的SNP，输出gene-SNP pairs
     matched_gene <- c()
     matched_snps <- c()
 
     for (i in 1:nrow(gene_loc)) {
-      # get range
       gene_start1 <- gene_loc$start_position[i] + downstream
       gene_end1 <- gene_loc$end_position[i] + upstream
 
-      # 遍历每个SNP
       for (j in 1:nrow(snps_loc)) {
-        # Retrieve the position information of the current SNP
         snp_chr <- snps_loc$chr_name[j]
         snp_pos <- snps_loc$position[j]
 
-        # Determine if the current SNP is within the range of the gene
-        if (snp_chr == gene_loc$chromosome_name[i] &&
-            snp_pos >= gene_start1 &&
-            snp_pos <= gene_end1) {
-          # Add matching SNPs to the current gene's SNP list
+        if (snp_chr == gene_loc$chromosome_name[i] && snp_pos >= gene_start1 && snp_pos <= gene_end1) {
           matched_snps <- c(matched_snps, snps_loc$refsnp_id[j])
-
-          matched_gene <- c(matched_gene, gene_loc$ensembl_gene_id[i])
-
+          matched_gene <- c(matched_gene, gene_loc[i, 1])
         }
       }
     }
-
     matched_snps <- unique(matched_snps)
     matched_gene <- unique(matched_gene)
 
   }else if(!is.null(gene_ids) && !is.null(upstream) && !is.null(downstream)){
-    if (downstream >= upstream) {
-      stop("downstream should be smaller than upstream.")
+    if (downstream > 0) {
+      stop("downstream should be negative.")
     }
 
-    # 连接数据库，构建snps_loc和gene_loc
     snps_loc <- check_snpList(snp.list)
 
     if (all(gene_ids %in% gene.list)) {
@@ -229,13 +239,9 @@ callQTL <- function(
         snp_chr <- snps_loc$chr_name[j]
         snp_pos <- snps_loc$position[j]
 
-        # 判断当前SNP是否在基因的范围内
-        if (snp_chr == gene_loc$chromosome_name[i] &&
-            snp_pos >= gene_start1 &&
-            snp_pos <= gene_end1) {
-          # 将匹配的SNP添加到当前基因的SNP列表中
+        while (snp_chr == gene_loc$chromosome_name[i] && snp_pos >= gene_start1 && snp_pos <= gene_end1) {
           matched_snps <- c(matched_snps, snps_loc$refsnp_id[j])
-          matched_gene <- c(matched_gene, gene_loc$ensembl_gene_id[i])
+          matched_gene <- c(matched_gene, gene_loc[i, 1])
 
         }
       }
@@ -247,7 +253,7 @@ callQTL <- function(
     stop("Please enter upstream and downstream simultaneously.")
   }
 
-  possionModel <- function(
+  poissonModel <- function(
     eQTLObject,
     genelist,
     snplist,
@@ -300,7 +306,7 @@ callQTL <- function(
           }
 
           snp_mat_new <- snp_mat %>%
-            mutate_all(funs(replace_2_and_3))
+            mutate_all(list(~replace_2_and_3(.)))
 
           genes <- genelist
 
@@ -357,7 +363,7 @@ callQTL <- function(
             combined_df <- merge(snp_mat, gene_mat, by = "cells")
             combined_df <- subset(combined_df, snp_mat != 0)
 
-            lmodel = glm(combined_df$gene_mat ~ combined_df$snp_mat, family = poisson());
+            lmodel = stats::glm(combined_df$gene_mat ~ combined_df$snp_mat, family = poisson());
 
             lmout_pvalue = summary(lmodel)$coefficients[2, "Pr(>|z|)"]
             lmout_b = summary(lmodel)$coefficients[2, "Estimate"]
@@ -517,7 +523,7 @@ callQTL <- function(
                                      silent = TRUE)
                 options(show.error.messages = TRUE)
 
-                if('try-error' %in% class(zinb_gamlssML)){
+                if (inherits(pvalue, "try-error")){
                   print("MLE of ZINB failed! Please choose another model")
                   return(list(theta = NA, mu = NA, size = NA, prob = NA))
                 }else{
@@ -558,9 +564,6 @@ callQTL <- function(
 
 
               # calculate p-value ---------------------------------------
-              # 原假设是，两个模型拟合数据的效果没有显著差别，
-              # 也就是ref组和alt组的基因表达量没有显著性差异
-              # 计算两组数据的对数似然之和
               logL <- function(counts_1,
                                theta_1,
                                size_1,
@@ -584,7 +587,6 @@ callQTL <- function(
                 logL <- logL_1 + logL_2
                 logL
               }
-              # 基于两个不同模型的似然值计算
               logL_A <- logL(counts_1,
                              theta_1,
                              size_1,
@@ -593,7 +595,6 @@ callQTL <- function(
                              theta_2,
                              size_2,
                              prob_2)
-              # 基于合并模型的似然值计算
               logL_B <- logL(counts_1,
                              theta_res,
                              size_res,
@@ -602,9 +603,7 @@ callQTL <- function(
                              theta_res,
                              size_res,
                              prob_res)
-              # 假设检验计算卡方
               chi <- logL_A - logL_B
-              # 进而计算p值
               pvalue <- 1 - pchisq(2 * chi , df = 3)
 
 
@@ -801,7 +800,6 @@ callQTL <- function(
                       prob <- size / (size + mu)
                     }
                   } else {
-                    # 如果第一次建模没有失败，就从建模结果中得到参数
                     zinb <- zinb_gamlssML
                     theta <- zinb$nu
                     mu <- zinb$mu
@@ -1041,7 +1039,7 @@ callQTL <- function(
           }
 
           snp_mat_new <- snp_mat %>%
-            mutate_all(funs(replace_2_and_3))
+            mutate_all(list(~replace_2_and_3(.)))
 
           genes <- genelist
 
@@ -1151,8 +1149,8 @@ callQTL <- function(
                         biClassify = biClassify,
                         p.adjust.method = p.adjust.method,
                         p.adjust.Threshold = p.adjust.Threshold)
-  }else if(useModel == "possion"){
-    result <- possionModel(eQTLObject = eQTLObject,
+  }else if(useModel == "poisson"){
+    result <- poissonModel(eQTLObject = eQTLObject,
                            genelist = matched_gene,
                            snplist = matched_snps,
                            biClassify = biClassify,
@@ -1167,9 +1165,10 @@ callQTL <- function(
                           p.adjust.Threshold = p.adjust.Threshold,
                           logfc.threshold = logfc.threshold)
   }else{
-    stop("Invalid model Please choose from 'zinb', 'possion' , or 'linear'.")
+    stop("Invalid model Please choose from 'zinb', 'poisson' , or 'linear'.")
   }
 
+  options(warn = 0)
   eQTLObject@eQTLResult <- result
   return(eQTLObject)
 }

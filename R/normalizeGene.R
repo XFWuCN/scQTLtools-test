@@ -16,6 +16,12 @@
 #' @examples
 #' # Load test data for cisSceQTL
 #' data(testGene)
+#' data(testSNP)
+#' eqtl <- createQTLObject(snpMatrix = testSNP,
+#'                         genedata = testGene,
+#'                         biClassify = FALSE,
+#'                         species = 'human',
+#'                         group = NULL)
 #' # normalize the data
 #' eqtl <- normalizeGene(eqtl, method = "logNormalize")
 
@@ -49,7 +55,6 @@ normalizeGene <- function(eQTLObject, method = "logNormalize") {
 
   } else if (method == "DESeq") {
     # DESeq normalization
-    requireNamespace("DESeq2")
     sample.df <- colnames(expressionMatrix)
     sample.df <- as.data.frame(sample.df)
     dds <- DESeq2::DESeqDataSetFromMatrix(countData = expressionMatrix,
@@ -59,7 +64,6 @@ normalizeGene <- function(eQTLObject, method = "logNormalize") {
     normalized_data <- DESeq2::counts(dds, normalized = TRUE)
   } else if (method == "limma") {
     # limma normalization
-    requireNamespace("limma")
     normalized_data <- limma::normalizeBetweenArrays(expressionMatrix,
                                                      method="quantile")
   }

@@ -1,29 +1,51 @@
 #' visualizeQTL: Visualize the gene-snp pairs by group.
-#'
-#' @param SNPid ID of SNP
-#' @param Geneid ID of Gene
-#' @param plottype Types of plot, one of  "QTL".
+#' @param SNPid ID of SNP.
+#' @param Geneid ID of Gene.
+#' @param plottype Types of plot, one of  "QTLplot", "violin", "boxplot" or "histplot".
 #' @param eQTLObject An S4 object of class eQTLObject.
 #' @param groupName Users can choose one or more than one single cell groups.
 #' @param removeoutlier Whether identify and remove the outliers. Default by FALSE.
 #'
-#' @importFrom ggplot2 ggplot
+#' @importFrom ggplot2 ggplot aes scale_fill_manual geom_violin geom_boxplot
+#' @importFrom ggplot2 geom_point labs theme position_dodge scale_fill_brewer
+#' @importFrom ggplot2 position_jitterdodge theme_bw element_text element_line
+#' @importFrom ggplot2 unit element_blank
 #' @importFrom hrbrthemes theme_ipsum
-#' @importFrom showtext showtext_auto
-#' @importFrom sysfonts font_add
-
+#' @importFrom patchwork wrap_plots plot_annotation
+#'
 #' @return plot
 #' @export
 #' @examples
+#' data(testSNP)
+#' data(testSNP)
+#' eqtl <- createQTLObject(snpMatrix = testSNP,
+#'                      genedata = testGene,
+#'                      biClassify = FALSE,
+#'                      species = 'human',
+#'                      group = NULL)
+#' eqtl <- normalizeGene(eqtl, method = "logNormalize")
+#' eqtl <- filterGeneSNP(eqtl,
+#'                       snp.number.of.cells.percent = 2,
+#'                       expression.min = 0,
+#'                       expression.number.of.cells.percent = 2
+#'                       )
+#' eqtl <- callQTL(eqtl,
+#'                 gene_ids = NULL,
+#'                 downstream = NULL,
+#'                 upstream = NULL,
+#'                 p.adjust.method = "bonferroni",
+#'                 useModel = "poisson",
+#'                 p.adjust.Threshold = 0.05,
+#'                 logfc.threshold = 0.1
+#'                 )
 #' visualizeQTL(eqtl,
 #'              SNPid = "1:632647",
 #'              Geneid = "RPS27",
-#'              plottype = "violin",
+#'              groupName = NULL,
+#'              plottype = "QTLplot",
 #'              removeoutlier = FALSE
 #'              )
 
-font_add('Arial', '/Library/Fonts/Arial.ttf')  # 这行代码要放哪里
-showtext_auto()
 
 visualizeQTL <- function(eQTLObject,
                          SNPid,
@@ -45,9 +67,9 @@ visualizeQTL <- function(eQTLObject,
   df_all <- data.frame()
 
   for(i in unique_group){
-    split_cellnames <- rownames(eQTLObject@groupBy)[eQTLObject@groupBy$group == i]
+    split_cells <- rownames(eQTLObject@groupBy)[eQTLObject@groupBy$group == i]
     split_expressionMatrix <- expressionMatrix[, split_cells]
-    split_snpMatrix <- snpMatrix[, split_cells]
+    snpMatrix_split <- snpMatrix[, split_cells]
 
     result <- eQTLresult[(eQTLresult$group == i)&(eQTLresult$SNPid == SNPid)&(eQTLresult$Geneid == Geneid),]
 
@@ -205,6 +227,7 @@ visualizeQTL <- function(eQTLObject,
 
   title_all <- paste("Plot", "of", Geneid , "and", SNPid )
 
+  options(warn = -1)
   plot_list <- list()
   if(plottype=='QTLplot'){
     for(j in 1:length(unique_group)){
@@ -247,6 +270,7 @@ visualizeQTL <- function(eQTLObject,
   combined_plot <- wrap_plots(plot_list)
   title_annotation <- plot_annotation(title = title_all, theme = theme(plot.title = element_text(size = 16, hjust = 0.5, vjust = 1)))
   combined_plot <- combined_plot + title_annotation
+  options(warn = 0)
   print(combined_plot)
 
 }

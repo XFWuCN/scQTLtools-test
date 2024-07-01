@@ -10,27 +10,35 @@
 #' @param expression.number.of.cells.percent Only genes with expression levels
 #' exceeding `expression.min` in at least `expression.number.of.cells.percent`%
 #' of cells are considered. The default value is 10.
-#' @param ...
+#' @importFrom progress progress_bar
 #'
-#' @return
+#' @return Genotype matrix and gene expression matrix after normalizing.
 #' @export
 #'
 #' @examples
+#' data(testSNP)
+#' data(testGene)
+#' eqtl <- createQTLObject(snpMatrix = testSNP,
+#'                      genedata = testGene,
+#'                      biClassify = FALSE,
+#'                      species = 'human',
+#'                      group = NULL)
+#' eqtl <- normalizeGene(eqtl, method = "logNormalize")
 #' eqtl <- filterGeneSNP(eqtl,
-#'                       snp.number.of.cells.percent = 10,
+#'                       snp.number.of.cells.percent = 2,
 #'                       expression.min = 0,
-#'                       expression.number.of.cells.percent = 10
+#'                       expression.number.of.cells.percent = 2
 #'                       )
 filterGeneSNP <- function(
     eQTLObject,
-    snp.number.of.cells.percent = 10,
+    snp.number.of.cells.percent = 2,
     expression.min = 0,
-    expression.number.of.cells.percent = 10,
-    ...
+    expression.number.of.cells.percent = 2
 ){
-  nor_expressionMatrix <- as.data.frame(eQTLObject@rawData$normExpMat)
-  if(!is.null(nor_expressionMatrix)){
-    expression.number.of.cells <- ceiling((expression.number.of.cells.percent / 100) * ncol(nor_expressionMatrix))
+  if(!is.null(eQTLObject@rawData$normExpMat)){
+    nor_expressionMatrix <- as.data.frame(eQTLObject@rawData$normExpMat)
+    expression.number.of.cells <- ceiling((expression.number.of.cells.percent / 100) *
+                                            ncol(nor_expressionMatrix))
     valid_genes <- rownames(nor_expressionMatrix)[apply(nor_expressionMatrix >
                                                           expression.min, 1, sum) >=
                                                     expression.number.of.cells]

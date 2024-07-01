@@ -1,0 +1,212 @@
+---
+title: "scQTLtools:An R package for single-cell eQTL analysis."
+author: 
+- Xiaofeng Wu
+- Xin Huang
+- Jingtong Kang
+- Siwen Xu
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
+    number_sections: true
+    self_contained: yes
+    css: header-styles.css
+    highlight: pygments
+    style: symbol
+    df_print: kable
+vignette: >
+  %\VignetteIndexEntry{cisSceQTL:An R package for single-cell eQTL analysis.}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+  
+# Introduction
+Expression quantitative trait loci (eQTL) analysis links variations in 
+gene expression levels to genotypes. This package attempts to identify genetic 
+variants that affect the expression of genes at a single-cell level, and can 
+also do cis-eQTL analysis, visualize the results. 
+
+## Citation
+
+If you find this tool useful, please cite:
+  
+------------------------------------------------------------------------
+  
+***[https://bioconductor.org/packages/3.18/scQTLtools](https://bioconductor.org/packages/3.18/scQTLtools)***
+  
+------------------------------------------------------------------------
+  
+------------------------------------------------------------------------
+  
+***[https://github.com/XFWu/scQTLtools](https://github.com/XFWu/scQTLtools)***
+  
+------------------------------------------------------------------------
+  
+# Installation
+  
+```{r, eval = FALSE}
+if (!require("BiocManager"))
+  install.packages("BiocManager")
+BiocManager::install("scQTLtools")
+```
+
+
+# Overview of the package
+
+scQTLtools functions can be categorized into mainly single-cell eQTL analysis and
+Visualization modules. Each of these functions and a short description is 
+summarized as shown below.
+
+
+![scQTLtools overview](Overview.svg){width=90%}
+
+
+# Required input files
+The input file requires genotype data, as well as either a gene expression matrix
+or a SeuratObject.
+
+- gene expression matrix: describes gene expressions, the row names represent gene IDs or SYMBOL and the column names represent cell IDs.
+- SeuratObject: a Seurat object, `yourseurat@assays$RNA@data` is the gene 
+expression matrix after normalizing.
+- genotype matrix: A genotype matrix where each row is one variant and each 
+column is one sample, and the scoring method is 0/1/2/3, o represents missing
+values, 1 represents ref/ref, 2 represents alt/alt, and 3 represents ref/alt.
+
+The columns of the genotype matrix should correspond to the columns of the gene 
+expression matrix.
+
+**Example**
+  
+```{r input, message=FALSE}
+library(scQTLtools)
+# gene expression matrix
+data(testGene)
+# SeuratObject
+data(testSeurat)
+# load the genotype data
+data(testSNP)
+```
+
+
+# Create eqtl object
+The createQTLObject class is an R object designed to store data related to eQTL
+(expression quantitative trait loci) analysis, encompassing data lists,
+result data frames, and slots for biClassify, species, and group information.
+
+**Example**
+
+```{r createObject, message=FALSE}
+eqtl <- createQTLObject(snpMatrix = testSNP,
+                        genedata = testGene,
+                        biClassify = FALSE,
+                        species = 'human',
+                        group = NULL)
+```
+
+
+# Normalize gene expression matrix
+Use `normalizeGene` to normalize the gene expression matrix.
+
+**Example**
+
+```{r Normalize, message=FALSE}
+eqtl  <- normalizeGene(eQTLObject = eqtl, method = "logNormalize")
+```
+
+
+# Identify the valid gene snp pairs
+Here we use `filterGeneSNP` to filter snp gene pairs.
+
+**Example**
+
+```{r filter, message=FALSE}
+eqtl <- filterGeneSNP(eQTLObject = eqtl,
+                      snp.number.of.cells.percent = 2,
+                      expression.min = 0,
+                      expression.number.of.cells.percent = 2)
+```
+
+
+# Call single cell eQTL
+Here we use `callQTL` to do single cell eQTL analysis.
+
+**Example**
+
+```{r callQTL1, message=FALSE}
+ eqtl1 <- callQTL(eqtl,
+                 gene_ids = NULL,
+                 downstream = NULL,
+                 upstream = NULL,
+                 p.adjust.method = "bonferroni",
+                 useModel = "poisson",
+                 p.adjust.Threshold = 0.05,
+                 logfc.threshold = 0.1
+                 )
+```
+
+Users can use the parameter `gene_ids` to select one or several genes of interest for identifying sc-eQTLs.
+
+**Example**
+
+```{r eQTLsc2, message=FALSE}
+ eqtl2 <- callQTL(eqtl,
+                  gene_ids = c("CNN2", "RNF113A", "SH3GL1", "INTS13", "PLAU"),
+                  downstream = NULL,
+                  upstream = NULL,
+                  p.adjust.method = "bonferroni",
+                  useModel = "poisson",
+                  p.adjust.Threshold = 0.05,
+                 logfc.threshold = 0.1
+                 )
+```
+
+They can also use `upstream` and `downstream` to specify SNPs proximal to the gene in the genome.
+
+**Example**
+
+```{r eQTLsc3, message=FALSE}
+ eqtl3 <- callQTL(eqtl,
+                  gene_ids = NULL,
+                  downstream = -85000000,
+                  upstream = 20000000,
+                  p.adjust.method = "bonferroni",
+                  useModel = "poisson",
+                  p.adjust.Threshold = 0.05,
+                 logfc.threshold = 0.1
+                 )
+```
+
+
+# Visualize the result.
+Here we use `visualizeQTL` to visualize the result. There are four types of plots available to visualize sc-eQTL results. Users can choose "histplot", "violin", "boxplot", or "QTLplot". "In addition, the parameter `groupName` is used to specify a particular single-cell group of interest."
+
+**Example**
+
+```{r visualizeQTL, message=FALSE}
+visualizeQTL(eQTLObject = eqtl1,
+             SNPid = "1:632647",
+             Geneid = "RPS27",
+             groupName = NULL,
+             plottype = "QTLplot",
+             removeoutlier = TRUE)
+```
+
+
+# References
+1. Miao, Z., Deng, K.e., Wang, X., Zhang, X., Berger, B., 2018. DEsingle for detecting three types of differential expression in single-cell RNA-seq data. Bioinformatics 34 (18), 3223–3224.
+<https://doi.org/10.1093/bioinformatics/bty332>
+2. Hu, Y., Xi, X., Yang, Q., Zhang, X., 2020. SCeQTL: An R package for identifying eQTL from single-cell parallel sequencing data. BMC Bioinformatics 21, 1–12. <https://doi.org/10.1186/s12859-020-3534-6>
+3. Nathan, A., Asgari, S., Ishigaki, K. et al. Single-cell eQTL models reveal dynamic T cell state dependence of disease loci. Nature 606, 120–128 (2022). <https://doi.org/10.1038/s41586-022-04713-1>
+4. Ma, T. ,  Li, H. , &  Zhang, X. . (2021). Discovering single-cell eQTLs from scRNA-seq data only. Cold Spring Harbor Laboratory.
+5. Schmiedel, B. J., Gonzalez-Colin, C., Fajardo, V., Rocha, J., Madrigal, A., Ramírez-Suástegui, C., Bhattacharyya, S., Simon, H., Greenbaum, J. A., Peters, B., Seumois, G., Ay, F., Chandra, V., & Vijayanand, P. (2022). Single-cell eQTL analysis of activated T cell subsets reveals activation and cell type-dependent effects of disease-risk variants. Science immunology, 7(68), eabm2508. <https://doi.org/10.1126/sciimmunol.abm2508>
+
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
+

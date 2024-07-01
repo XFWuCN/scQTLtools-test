@@ -14,7 +14,6 @@ setClassUnion(name = 'AnyMatrixOrDataframe',
 #' @slot rawData A gene expression dataframe, the row names represent gene IDs
 #' and the column names represent cell IDs.
 #' @slot filterData list. gene expression matrix after normalizing.
-#' @slot validIDsResult metadata
 #' @slot eQTLResult The result dataframe obtained the sc-eQTL results.
 #' @slot biClassify The user chooses whether to convert the counting method of
 #' the snpMatrix to 1/2, TRUE indicates conversion, and FALSE indicates no
@@ -47,12 +46,9 @@ setClass(
 #' This method is used to display information about an object of class eQTLObject.
 #' When called on an eQTLObject, it prints a descriptive message to the console.
 #'
-#' @param eQTLObject An S4 object of class eQTLObject.
-#'
+#' @param object An S4 object of class eQTLObject.
+#' @importFrom methods setMethod
 #' @export
-#'
-#' @examples
-#' show(eqtldata)
 setMethod(
   f = "show",
   signature = "eQTLObject",
@@ -105,7 +101,7 @@ setMethod(
 #' @param species The species that the user wants to select, human or mouse.
 #' @param group Provided by Seurat's meta.data, such as celltypes, cellstatus
 #' and so on. By default, it is NULL.
-#' @param ...
+#' @param ... other parameters
 #'
 #' @return eQTLObject
 #' @export
@@ -113,10 +109,11 @@ setMethod(
 #' @examples
 #' data(testSNP)
 #' data(testGene)
-#' eqtl <- createObject(snpMatrix = testSNP,
+#' eqtl <- createQTLObject(snpMatrix = testSNP,
 #'                      genedata = testGene,
 #'                      biClassify = FALSE,
-#'                      species = 'human')
+#'                      species = 'human',
+#'                      group = NULL)
 #'
 createQTLObject <- function(
     snpMatrix,
