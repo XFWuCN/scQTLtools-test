@@ -27,7 +27,7 @@ exceeding `expression.min` in at least `expression.number.of.cells.percent`%
 of cells are considered. The default value is 10.}
 }
 \value{
-Genotype matrix and gene expression matrix after normalizing.
+filtered genotype matrix and gene expression matrix.
 }
 \description{
 filterGeneSNP: Filter gene expression matrix and genotype matrix.

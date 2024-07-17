@@ -9,11 +9,12 @@
 #' @importFrom ggplot2 ggplot aes scale_fill_manual geom_violin geom_boxplot
 #' @importFrom ggplot2 geom_point labs theme position_dodge scale_fill_brewer
 #' @importFrom ggplot2 position_jitterdodge theme_bw element_text element_line
-#' @importFrom ggplot2 unit element_blank
+#' @importFrom ggplot2 unit element_blank geom_histogram facet_grid theme_minimal
+#' @importFrom ggplot2 ggtitle guides guide_legend
 #' @importFrom hrbrthemes theme_ipsum
 #' @importFrom patchwork wrap_plots plot_annotation
 #'
-#' @return plot
+#' @return list
 #' @export
 #' @examples
 #' data(testSNP)
@@ -71,7 +72,9 @@ visualizeQTL <- function(eQTLObject,
     split_expressionMatrix <- expressionMatrix[, split_cells]
     snpMatrix_split <- snpMatrix[, split_cells]
 
-    result <- eQTLresult[(eQTLresult$group == i)&(eQTLresult$SNPid == SNPid)&(eQTLresult$Geneid == Geneid),]
+    result <- eQTLresult[(eQTLresult$group == i)&
+                           (eQTLresult$SNPid == SNPid)&
+                           (eQTLresult$Geneid == Geneid),]
 
     if(biClassify == TRUE){
 
@@ -101,7 +104,8 @@ visualizeQTL <- function(eQTLObject,
 
       # building data frame
       df <- data.frame(expression = c(counts_Ref,counts_Alt),
-                       snp = c(rep("REF", length(counts_Ref)), rep("ALT", length(counts_Alt))),
+                       snp = c(rep("REF", length(counts_Ref)),
+                               rep("ALT", length(counts_Alt))),
                        group = i)
       df$snp <- factor(df$snp, levels = c("REF", "ALT"))
       title <- paste(i)
@@ -152,51 +156,32 @@ visualizeQTL <- function(eQTLObject,
   }
 
   drawboxplot <- function(df, unique_group){
-    ggplot(df, aes(x = factor(df$snp),
-                   y = df$expression,
-                   fill = factor(df$snp)))+
+    ggplot(df, aes(x = factor(snp),
+                   y = expression,
+                   fill = factor(snp)))+
       geom_boxplot(alpha=0.3)+
-      theme_ipsum()+
-      ggtitle(title)+
+      theme_bw() +
       scale_fill_brewer(palette="Dark2")+
-      labs(title = unique_group, x = "Group", y = "Expression")+
-      theme(plot.title = element_text(size = 14),
-            axis.line = element_line(color="black"),
-            panel.grid.major = element_blank(),
-            panel.grid.minor = element_blank())+
-      guides(fill = guide_legend(title = NULL), color = guide_legend(title = NULL))
+      labs(title = unique_group, x = "", y = "Expression")+
+      theme(axis.text.x = element_text(size = 15, color = "black"),
+            axis.text.y = element_text(size = 12, color = "black"),
+            axis.ticks = element_line(size=0.2, color="black"),
+            axis.ticks.length = unit(0.2, "cm"),
+            plot.title = element_text(hjust = 0.5, size = 14),
+            legend.position = "none",
+            panel.background = element_blank(),
+            panel.grid = element_blank(),
+            axis.title = element_text(size = 15),
+            axis.text = element_text(size = 12))
   }
 
   drawviolinplot <- function(df, unique_group){
-    ggplot(df, aes(x = factor(df$snp),
-                   y = df$expression,
-                   fill = factor(df$snp)))+
-      geom_violin(alpha=0.5)+
-      theme_ipsum()+
-      geom_boxplot(width = 0.12, outlier.shape = NA, position = position_dodge(0.55)) +  # 显示箱线图
-      ggtitle(title)+
-      scale_fill_brewer(palette="Dark2")+
-      labs(title = unique_group, x = "Group", y = "Expression")+
-      theme(plot.title = element_text(size = 14),
-            axis.line = element_line(color="black"),
-            panel.grid.major = element_blank(),
-            panel.grid.minor = element_blank())+
-      guides(fill = guide_legend(title = NULL), color = guide_legend(title = NULL))
-
-  }
-
-  QTLplot <- function(df, unique_group){
-    ggplot(data = df,aes(x = df$snp,
-                         y = df$expression ,
-                         fill = factor(df$snp)))+
+    ggplot(data = df,aes(x = snp,
+                         y = expression ,
+                         fill = factor(snp)))+
       scale_fill_manual(values = c("#D7AA36", "#D85356", "#94BBAD")) +
       geom_violin(alpha = 0.7, position = position_dodge(width = .75),
                   size = 0.8, color="black") +
-      geom_boxplot(notch = TRUE, outlier.size = -1,
-                   color="black", lwd=0.5, alpha = 0.7) +
-      geom_point(shape = 21, size=1.8, stroke=NA,
-                 position = position_jitterdodge(jitter.width = 0.8),
-                 alpha = 1.2) +
       theme_bw() +
       labs(title = unique_group, y = "Expression", x = '') +
       theme(axis.text.x = element_text(size = 15, color = "black"),
@@ -211,17 +196,45 @@ visualizeQTL <- function(eQTLObject,
             axis.text = element_text(size = 12))
   }
 
+  QTLplot <- function(df, unique_group){
+    ggplot(data = df,aes(x = snp,
+                         y = expression ,
+                         fill = factor(snp)))+
+      scale_fill_manual(values = c("#D7AA36", "#D85356", "#94BBAD")) +
+      geom_violin(alpha = 0.7, position = position_dodge(width = .75),
+                  size = 0.8, color="black") +
+      geom_boxplot(notch = TRUE, outlier.size = -1,
+                   color="black", lwd=0.5, alpha = 0.7) +
+      geom_point(shape = 21, size=1.8, stroke=NA,
+                 position = position_jitterdodge(jitter.width = 0.8),
+                 alpha = 1.2) +
+      theme_bw() +
+      labs(title = unique_group, y = "Expression", x = "") +
+      theme(axis.text.x = element_text(size = 15, color = "black"),
+            axis.text.y = element_text(size = 12, color = "black"),
+            axis.ticks = element_line(size=0.2, color="black"),
+            axis.ticks.length = unit(0.2, "cm"),
+            plot.title = element_text(hjust = 0.5, size = 14),
+            legend.position = "none",
+            panel.background = element_blank(),
+            panel.grid = element_blank(),
+            axis.title = element_text(size = 15),
+            axis.text = element_text(size = 12))
+  }
+
   drawhistplot <- function(df, unique_group){
-    ggplot(df, aes(df$expression,fill = factor(df$snp)))+
-      geom_histogram(binwidth=40,color="white")+
+    ggplot(df, aes(expression, fill = factor(snp)))+
+      geom_histogram()+facet_grid(snp ~ ., margins=FALSE, scales="free_y") +
       scale_fill_brewer(palette = "Pastel1")+
-      facet_grid(df$snp ~ .,scales="free_y")+
       labs(title = unique_group,
-           x = "Gene Expression",
-           y = "Frequency")+
+           x = "Expression",
+           y = "Count")+
       theme_minimal()+
       ggtitle(title)+
-      theme(legend.position = "top")+
+      theme(axis.title.x = element_text(hjust = 0.5, face = "bold"),
+            axis.title.y = element_text(vjust = 0.5, face = "bold"),
+            plot.title = element_text(hjust = 0.5, size = 14),
+            legend.position = "none")+
       guides(fill = guide_legend(title = NULL), color = guide_legend(title = NULL))
   }
 
@@ -265,12 +278,18 @@ visualizeQTL <- function(eQTLObject,
       plot <- drawhistplot(df_split, unique_group[j])
       plot_list[[j]] <- plot
     }
+  }else{
+    stop("Invalid plottype,
+         Please choose from 'QTLplot', 'violin' , 'boxplot' or 'histplot'.")
   }
 
   combined_plot <- wrap_plots(plot_list)
-  title_annotation <- plot_annotation(title = title_all, theme = theme(plot.title = element_text(size = 16, hjust = 0.5, vjust = 1)))
+  title_annotation <- plot_annotation(title = title_all,
+                                      theme = theme(
+                                        plot.title = element_text(
+                                          size = 16, hjust = 0.5, vjust = 1)))
   combined_plot <- combined_plot + title_annotation
-  options(warn = 0)
   print(combined_plot)
+  options(warn = 0)
 
 }

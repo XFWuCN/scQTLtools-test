@@ -61,7 +61,7 @@ Visualization modules. Each of these functions and a short description is
 summarized as shown below.
 
 
-![scQTLtools overview](Overview.svg){width=90%}
+![ ](Overview.svg){width=90%}
 
 
 # Required input files
@@ -72,7 +72,7 @@ or a SeuratObject.
 - SeuratObject: a Seurat object, `yourseurat@assays$RNA@data` is the gene 
 expression matrix after normalizing.
 - genotype matrix: A genotype matrix where each row is one variant and each 
-column is one sample, and the scoring method is 0/1/2/3, o represents missing
+column is one sample, and the scoring method is 0/1/2/3, 0 represents missing
 values, 1 represents ref/ref, 2 represents alt/alt, and 3 represents ref/alt.
 
 The columns of the genotype matrix should correspond to the columns of the gene 
@@ -92,104 +92,150 @@ data(testSNP)
 
 
 # Create eqtl object
-The createQTLObject class is an R object designed to store data related to eQTL
-(expression quantitative trait loci) analysis, encompassing data lists,
-result data frames, and slots for biClassify, species, and group information.
+The createQTLObject class is an R object designed to store data related to eQTL analysis, encompassing data lists, result data frames, and slots for biClassify, species, and group information.
 
 **Example**
 
-```{r createObject, message=FALSE}
-eqtl <- createQTLObject(snpMatrix = testSNP,
-                        genedata = testGene,
-                        biClassify = FALSE,
-                        species = 'human',
-                        group = NULL)
+```{r createObject_matrix, message=FALSE}
+eqtl_matrix <- createQTLObject(snpMatrix = testSNP,
+                               genedata = testGene,
+                               biClassify = FALSE,
+                               species = 'human',
+                               group = NULL)
+```
+
+Users can use Seuratobjct instead of gene expression matrix. 
+
+**Example**
+
+```{r createObject_seuratobject, message=FALSE}
+eqtl_seurat <- createQTLObject(snpMatrix = testSNP,
+                               genedata = testSeurat,
+                               biClassify = FALSE,
+                               species = 'human',
+                               group = "celltype")
 ```
 
 
 # Normalize gene expression matrix
-Use `normalizeGene` to normalize the gene expression matrix.
+Use `normalizeGene()` to normalize the gene expression matrix.
 
 **Example**
 
-```{r Normalize, message=FALSE}
-eqtl  <- normalizeGene(eQTLObject = eqtl, method = "logNormalize")
+```{r Normalize_matrix, message=FALSE}
+eqtl_matrix  <- normalizeGene(eQTLObject = eqtl_matrix, 
+                              method = "logNormalize")
 ```
 
 
 # Identify the valid gene snp pairs
-Here we use `filterGeneSNP` to filter snp gene pairs.
+Here we use `filterGeneSNP()` to filter snp gene pairs.
 
 **Example**
 
-```{r filter, message=FALSE}
-eqtl <- filterGeneSNP(eQTLObject = eqtl,
-                      snp.number.of.cells.percent = 2,
-                      expression.min = 0,
-                      expression.number.of.cells.percent = 2)
+```{r filter_matrix, message=FALSE}
+eqtl_matrix <- filterGeneSNP(eQTLObject = eqtl_matrix,
+                             snp.number.of.cells.percent = 2,
+                             expression.min = 0,
+                             expression.number.of.cells.percent = 2)
+```
+
+```{r filter_seuratobject, message=FALSE}
+eqtl_seurat <- filterGeneSNP(eQTLObject = eqtl_seurat,
+                             snp.number.of.cells.percent = 2,
+                             expression.min = 0,
+                             expression.number.of.cells.percent = 2)
 ```
 
 
 # Call single cell eQTL
-Here we use `callQTL` to do single cell eQTL analysis.
+Here we use `callQTL()` to do single cell eQTL analysis.
 
 **Example**
 
-```{r callQTL1, message=FALSE}
- eqtl1 <- callQTL(eqtl,
-                 gene_ids = NULL,
-                 downstream = NULL,
-                 upstream = NULL,
-                 p.adjust.method = "bonferroni",
-                 useModel = "poisson",
-                 p.adjust.Threshold = 0.05,
-                 logfc.threshold = 0.1
-                 )
+```{r callQTL1_matrix, message=FALSE}
+ eqtl1_matrix <- callQTL(eQTLObject = eqtl_matrix,
+                         gene_ids = NULL,
+                         downstream = NULL,
+                         upstream = NULL,
+                         p.adjust.method = "bonferroni",
+                         useModel = "poisson",
+                         p.adjust.Threshold = 0.05,
+                         logfc.threshold = 0.1)
+```
+
+```{r callQTL1_seuratobject, message=FALSE}
+ eqtl1_seurat <- callQTL(eQTLObject = eqtl_seurat,
+                         gene_ids = NULL,
+                         downstream = NULL,
+                         upstream = NULL,
+                         p.adjust.method = "bonferroni",
+                         useModel = "poisson",
+                         p.adjust.Threshold = 0.05,
+                         logfc.threshold = 0.1)
 ```
 
 Users can use the parameter `gene_ids` to select one or several genes of interest for identifying sc-eQTLs.
 
 **Example**
 
-```{r eQTLsc2, message=FALSE}
- eqtl2 <- callQTL(eqtl,
-                  gene_ids = c("CNN2", "RNF113A", "SH3GL1", "INTS13", "PLAU"),
-                  downstream = NULL,
-                  upstream = NULL,
-                  p.adjust.method = "bonferroni",
-                  useModel = "poisson",
-                  p.adjust.Threshold = 0.05,
-                 logfc.threshold = 0.1
-                 )
+```{r callQTL2_matrix, message=FALSE}
+ eqtl2_matrix <- callQTL(eQTLObject = eqtl_matrix,
+                         gene_ids = c("CNN2", "RNF113A", "SH3GL1", "INTS13", "PLAU"),
+                         downstream = NULL,
+                         upstream = NULL,
+                         p.adjust.method = "bonferroni",
+                         useModel = "poisson",
+                         p.adjust.Threshold = 0.05,
+                        logfc.threshold = 0.1)
 ```
 
-They can also use `upstream` and `downstream` to specify SNPs proximal to the gene in the genome.
+Users can also use `upstream` and `downstream` to specify SNPs proximal to the gene in the genome.
 
 **Example**
 
-```{r eQTLsc3, message=FALSE}
- eqtl3 <- callQTL(eqtl,
-                  gene_ids = NULL,
-                  downstream = -85000000,
-                  upstream = 20000000,
-                  p.adjust.method = "bonferroni",
-                  useModel = "poisson",
-                  p.adjust.Threshold = 0.05,
-                 logfc.threshold = 0.1
-                 )
+```{r callQTL3_matrix, message=FALSE}
+ eqtl3_matrix <- callQTL(eQTLObject = eqtl_matrix,
+                         gene_ids = NULL,
+                         downstream = -85000000,
+                         upstream = 20000000,
+                         p.adjust.method = "bonferroni",
+                         useModel = "poisson",
+                         p.adjust.Threshold = 0.05,
+                         logfc.threshold = 0.1)
 ```
 
 
 # Visualize the result.
-Here we use `visualizeQTL` to visualize the result. There are four types of plots available to visualize sc-eQTL results. Users can choose "histplot", "violin", "boxplot", or "QTLplot". "In addition, the parameter `groupName` is used to specify a particular single-cell group of interest."
+Here we use `visualizeQTL()` to visualize the result. There are four types of plots available to visualize sc-eQTL results. Users can choose "histplot", "violin", "boxplot", or "QTLplot". 
 
 **Example**
 
-```{r visualizeQTL, message=FALSE}
-visualizeQTL(eQTLObject = eqtl1,
+```{r visualizeQTL_matrix, message=FALSE}
+visualizeQTL(eQTLObject = eqtl1_matrix,
              SNPid = "1:632647",
              Geneid = "RPS27",
              groupName = NULL,
+             plottype = "QTLplot",
+             removeoutlier = TRUE)
+```
+
+```{r visualizeQTL_seuratobject, message=FALSE}
+visualizeQTL(eQTLObject = eqtl1_seurat,
+             SNPid = "1:632647",
+             Geneid = "RPS27",
+             groupName = NULL,
+             plottype = "QTLplot",
+             removeoutlier = TRUE)
+```
+
+In addition, the parameter `groupName` is used to specify a particular single-cell group of interest.
+
+```{r visualizeQTL_seuratobject_groupName, message=FALSE}
+visualizeQTL(eQTLObject = eqtl1_seurat,
+             SNPid = "1:632647",
+             Geneid = "RPS27",
+             groupName = "GMP",
              plottype = "QTLplot",
              removeoutlier = TRUE)
 ```

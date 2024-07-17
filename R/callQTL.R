@@ -72,12 +72,13 @@ callQTL <- function(
     logfc.threshold = 0.1){
 
   options(warn = -1)
-  if(length(eqtl@filterData) == 0){
-    cat("Please filter the data first.")
+  if(length(eQTLObject@filterData) == 0){
+    stop("Please filter the data first.")
   }else{
     expressionMatrix = eQTLObject@filterData$expMat
     snpMatrix = eQTLObject@filterData$snpMat
   }
+
   biClassify = eQTLObject@biClassify
   species = eQTLObject@species
 
@@ -171,9 +172,8 @@ callQTL <- function(
     }
   }
 
-
-  snp.list <- rownames(eQTLObject@filterData$snpMat)
-  gene.list <- rownames(eQTLObject@filterData$expMat)
+  snp.list <- rownames(snpMatrix)
+  gene.list <- rownames(expressionMatrix)
 
   if(is.null(gene_ids) && is.null(upstream) && is.null(downstream)){
     matched_gene <- gene.list
@@ -203,7 +203,8 @@ callQTL <- function(
         snp_chr <- snps_loc$chr_name[j]
         snp_pos <- snps_loc$position[j]
 
-        if (snp_chr == gene_loc$chromosome_name[i] && snp_pos >= gene_start1 && snp_pos <= gene_end1) {
+        if (snp_chr == gene_loc$chromosome_name[i] && snp_pos >= gene_start1 &&
+            snp_pos <= gene_end1) {
           matched_snps <- c(matched_snps, snps_loc$refsnp_id[j])
           matched_gene <- c(matched_gene, gene_loc[i, 1])
         }
@@ -222,8 +223,7 @@ callQTL <- function(
     if (all(gene_ids %in% gene.list)) {
       gene.list = gene_ids
     } else {
-      stop("Invalid gene ID！Please modify the filtering condition in the
-            previous step or replace it with another gene_ids.")
+      stop("The input gene_ids contain non-existent gene IDs. Please re-enter.")
     }
     gene_loc <- creat_gene_loc(gene.list)
 
@@ -239,7 +239,8 @@ callQTL <- function(
         snp_chr <- snps_loc$chr_name[j]
         snp_pos <- snps_loc$position[j]
 
-        while (snp_chr == gene_loc$chromosome_name[i] && snp_pos >= gene_start1 && snp_pos <= gene_end1) {
+        while (snp_chr == gene_loc$chromosome_name[i] && snp_pos >= gene_start1
+               && snp_pos <= gene_end1) {
           matched_snps <- c(matched_snps, snps_loc$refsnp_id[j])
           matched_gene <- c(matched_gene, gene_loc[i, 1])
 
@@ -262,9 +263,7 @@ callQTL <- function(
     p.adjust.Threshold = 0.05,
     logfc.threshold = 0.1){
 
-    expressionMatrix <- eQTLObject@filterData$expMat
     expressionMatrix <- round(expressionMatrix * 1000)
-    snpMatrix <- eQTLObject@filterData$snpMat
     unique_group <- unique(eQTLObject@groupBy$group)
 
     result_all <- data.frame()
@@ -319,7 +318,8 @@ callQTL <- function(
             combined_df <- merge(snp_mat_new, gene_mat, by = "cells")
             combined_df <- subset(combined_df, snp_mat != 0)
 
-            lmodel = stats::glm(combined_df$gene_mat ~ combined_df$snp_mat, family = poisson());
+            lmodel = stats::glm(combined_df$gene_mat ~ combined_df$snp_mat,
+                                family = poisson());
 
             lmout_pvalue = summary(lmodel)$coefficients[2, "Pr(>|z|)"]
             lmout_b = summary(lmodel)$coefficients[2, "Estimate"]
@@ -363,7 +363,8 @@ callQTL <- function(
             combined_df <- merge(snp_mat, gene_mat, by = "cells")
             combined_df <- subset(combined_df, snp_mat != 0)
 
-            lmodel = stats::glm(combined_df$gene_mat ~ combined_df$snp_mat, family = poisson());
+            lmodel = stats::glm(combined_df$gene_mat ~ combined_df$snp_mat,
+                                family = poisson());
 
             lmout_pvalue = summary(lmodel)$coefficients[2, "Pr(>|z|)"]
             lmout_b = summary(lmodel)$coefficients[2, "Estimate"]
@@ -423,8 +424,6 @@ callQTL <- function(
            Please choose from 'bonferroni', 'holm', 'hochberg', 'hommel', or'fdr or BH'.")
     }
 
-    expressionMatrix <- eQTLObject@filterData$expMat
-    snpMatrix <- eQTLObject@filterData$snpMat
     expressionMatrix <- round(expressionMatrix * 1000)
     unique_group <- unique(eQTLObject@groupBy$group)
 
@@ -450,7 +449,6 @@ callQTL <- function(
             genes <- genelist
             gene.cnt <- 0
 
-            # snp ----------------------------------------------------------------
             results_snp <- data.frame(
               SNPid = character(),
               group = character(),
@@ -474,7 +472,6 @@ callQTL <- function(
               Remark = character(),
               stringsAsFactors = FALSE)
 
-            # gene ---------------------------------------------------------------
             for (gene in genes){
               gene.cnt <- gene.cnt + 1
               # gene expression for ref group
@@ -503,18 +500,14 @@ callQTL <- function(
                                          Remark = NA,
                                          stringsAsFactors = FALSE)
 
-              # calculate fold change --------------------------------------------
               totalMean_1 <- mean(counts_1)
               totalMean_2 <- mean(counts_2)
               foldChange  <- totalMean_1/totalMean_2
 
-              # filling data -----------------------------------------------------
               results_gene[1,"total_mean_1"] <- totalMean_1
               results_gene[1,"total_mean_2"] <- totalMean_2
               results_gene[1,"foldChange"]   <- foldChange
 
-
-              # build  model -----------------------------------------------------
 
               build_model <- function(counts) {
 
@@ -540,30 +533,24 @@ callQTL <- function(
               build_model(counts_1)
               build_model(counts_2)
 
-
-              # estimate Ref params ----------------------------------------------
               params_1 <- build_model(counts_1)
               theta_1 <- params_1[['theta']]
               mu_1 <- params_1[['mu']]
               size_1 <- params_1[['size']]
               prob_1 <- params_1[['prob']]
 
-              #estimate Alt params -----------------------------------------------
               params_2 <- build_model(counts_2)
               theta_2 <- params_2[['theta']]
               mu_2 <- params_2[['mu']]
               size_2 <- params_2[['size']]
               prob_2 <- params_2[['prob']]
 
-              #combine Ref and Alt -----------------------------------------------
               params_combined <- build_model(c(counts_1, counts_2))
               theta_res <- params_combined[['theta']]
               mu_res <- params_combined[['mu']]
               size_res <- params_combined[['size']]
               prob_res <- params_combined[['prob']]
 
-
-              # calculate p-value ---------------------------------------
               logL <- function(counts_1,
                                theta_1,
                                size_1,
@@ -572,13 +559,11 @@ callQTL <- function(
                                theta_2,
                                size_2,
                                prob_2){
-                # log-likelihood for count1 under parameter
                 logL_1 <- sum(dzinegbin(counts_1,
                                         size = size_1,
                                         prob = prob_1,
                                         pstr0 = theta_1,
                                         log = TRUE))
-                # log-likelihood for count2 under parameter
                 logL_2 <- sum(dzinegbin(counts_2,
                                         size = size_2,
                                         prob = prob_2,
@@ -605,9 +590,6 @@ callQTL <- function(
                              prob_res)
               chi <- logL_A - logL_B
               pvalue <- 1 - pchisq(2 * chi , df = 3)
-
-
-              # filling data into data frame ------------------------------
 
               results_gene[1,"theta_1"] <- theta_1
               results_gene[1,"theta_2"] <- theta_2
@@ -995,8 +977,6 @@ callQTL <- function(
     p.adjust.Threshold = 0.05,
     logfc.threshold = 0.1){
 
-    expressionMatrix <- eQTLObject@filterData$expMat
-    snpMatrix <- eQTLObject@filterData$snpMat
     unique_group <- unique(eQTLObject@groupBy$group)
 
     result_all <- data.frame()

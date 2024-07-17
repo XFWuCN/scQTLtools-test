@@ -27,7 +27,7 @@ visualizeQTL(
 \item{removeoutlier}{Whether identify and remove the outliers. Default by FALSE.}
 }
 \value{
-plot
+list
 }
 \description{
 visualizeQTL: Visualize the gene-snp pairs by group.

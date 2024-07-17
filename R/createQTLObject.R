@@ -102,7 +102,7 @@ setMethod(
 #' @param group Provided by Seurat's meta.data, such as celltypes, cellstatus
 #' and so on. By default, it is NULL.
 #' @param ... other parameters
-#'
+#' @importFrom SeuratObject GetAssayData
 #' @return eQTLObject
 #' @export
 #'

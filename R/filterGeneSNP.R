@@ -12,7 +12,7 @@
 #' of cells are considered. The default value is 10.
 #' @importFrom progress progress_bar
 #'
-#' @return Genotype matrix and gene expression matrix after normalizing.
+#' @return filtered genotype matrix and gene expression matrix.
 #' @export
 #'
 #' @examples
