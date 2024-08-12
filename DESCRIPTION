@@ -10,7 +10,7 @@ Authors@R: c(
            comment = c(ORCID = "0009-0003-6254-5575")),
     person(given = "Xin",      
            family = "Huang", 
-           email = "",   
+           email = "1097567240@qq.com",   
            role  = c("aut", "cph")),
     person(given = "Jingtong", 
            family = "Kang",  
@@ -21,51 +21,46 @@ Authors@R: c(
            email = "siwxu@gdpu.edu.cn",      
            role  = c("aut", "cph"))
     )
-Maintainer: Xiaofeng Wu <1427972815@qq.com>
-Description: This package specializes in analyzing and visualizing eQTL at the single-cell level. 
-    It can read gene expression matrices or Seurat data, along with genotype data. 
-    It offers a function for cis-eQTL analysis to detect eQTL within a given range, and another function to fit models with three methods. 
-    Using this package, users can also generate single-cell level visualization result.
-Depends: R (>= 3.4.0)
+Description: This package specializes in analyzing and visualizing eQTL at the
+    single-cell level. It can read gene expression matrices or Seurat data, 
+    along with genotype data. It offers a function for cis-eQTL analysis to 
+    detect eQTL within a given range, and another function to fit models with
+    three methods. Using this package, users can also generate single-cell
+    level visualization result.
+Depends: R (>= 4.4.1.0)
 Imports:
-    org.Hs.eg.db (>= 3.17.0),
-    org.Mm.eg.db (>= 3.17.0),
-    ggplot2(>= 3.5.0),
-    biomaRt(>= 2.58.2),
-    MASS (>= 7.3-60),
-    Matrix (>= 1.6-4),
-    VGAM (>= 1.1-9),
-    bbmle (>= 1.0.25.1),
-    pscl (>= 1.5.5.1),
-    glmmTMB (>= 1.1.8),
-    gamlss (>= 5.4-20),
-    DESeq2 (>= 1.40.2),
-    limma (>= 3.56.2),
-    stats (>= 4.3.3),
-    hrbrthemes(>= 0.8.7),
+    ggplot2(>= 3.5.1),
+    Matrix (>= 1.7-0),
+    stats (>= 4.4.1),
     progress(>= 1.2.3),
     stringr(>= 1.5.1),
     dplyr(>= 1.1.4),
     SeuratObject(>= 5.0.2),
-    AnnotationDbi(>= 1.4.1),
-    methods(>= 4.3.3),
+    methods(>= 4.4.1),
     magrittr(>= 2.0.3),
-    patchwork(>= 1.2.0)
+    patchwork(>= 1.2.0),
+    DESeq2 (>= 1.44.0),
+    AnnotationDbi(>= 1.66.0),
+    VGAM (>= 1.1-11),
+    limma (>= 3.60.4),
+    biomaRt(>= 2.60.1),
+    org.Hs.eg.db (>= 3.19.1),
+    org.Mm.eg.db (>= 3.19.1),
+    gamlss (>= 5.4-22)
 Suggests: 
     BiocStyle,
     knitr,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.2.1.1)
 License: MIT + file LICENSE
+URL: https://github.com/XFWuCN/scQTLtools
 VignetteBuilder: knitr
 BugReports: https://github.com/XFWuCN/scQTLtools/issues
-biocViews: Software,GeneExpression,GeneticVariability,SNP,DifferentialExpression,GenomicVariation,VariantDetection,Genetics,FunctionalGenomics,SystemsBiology,Regression,SingleCell,Normalization,Visualization
+biocViews: Software,GeneExpression,GeneticVariability,SNP,
+        DifferentialExpression,GenomicVariation,VariantDetection,Genetics,
+        FunctionalGenomics,SystemsBiology,Regression,SingleCell,Normalization,
+        Visualization
 Encoding: UTF-8
-RoxygenNote: 7.3.1
-Author: Xiaofeng Wu [aut, cre, cph]
-    (<https://orcid.org/0009-0003-6254-5575>),
-  Xin Huang [aut, cph],
-  Jingtong Kang [com],
-  Siwen Xu [aut, cph]
-LazyData: true
+RoxygenNote: 7.3.2
+LazyData: false
 Config/testthat/edition: 3

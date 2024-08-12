@@ -6,28 +6,28 @@
 \usage{
 filterGeneSNP(
   eQTLObject,
-  snp.number.of.cells.percent = 2,
-  expression.min = 0,
-  expression.number.of.cells.percent = 2
+  snpNumOfCellsPercent = 2,
+  expressionMin = 0,
+  expressionNumOfCellsPercent = 2
 )
 }
 \arguments{
 \item{eQTLObject}{An S4 object of class eQTLObject.}
 
-\item{snp.number.of.cells.percent}{Only SNPs where cells with each of the
-different genotypes (REF and ALT, or AA, Aa, and aa) individually account for
- at least `snp.number.of.cells.percent`% of the total cells will be considered.
- The default valus is 10.}
+\item{snpNumOfCellsPercent}{Only SNPs where cells with each of the
+different genotypes (REF and ALT, or AA, Aa, and aa) individually account
+for at least `snpNumOfCellsPercent`% of the total cells will be considered.
+Default by 10.}
 
-\item{expression.min}{threshold for valid gene expression levels, utilized
-alongside another parameter, expression.number.of.cells. The default value is 0.}
+\item{expressionMin}{threshold for valid gene expression levels, utilized
+alongside another parameter,expression.number.of.cells.Default by 0.}
 
-\item{expression.number.of.cells.percent}{Only genes with expression levels
-exceeding `expression.min` in at least `expression.number.of.cells.percent`%
+\item{expressionNumOfCellsPercent}{Only genes with expression levels
+exceeding `expressionMin` in at least `expressionNumOfCellsPercent`%
 of cells are considered. The default value is 10.}
 }
 \value{
-filtered genotype matrix and gene expression matrix.
+filtered matrices.
 }
 \description{
 filterGeneSNP: Filter gene expression matrix and genotype matrix.
@@ -35,15 +35,10 @@ filterGeneSNP: Filter gene expression matrix and genotype matrix.
 \examples{
 data(testSNP)
 data(testGene)
-eqtl <- createQTLObject(snpMatrix = testSNP,
-                     genedata = testGene,
-                     biClassify = FALSE,
-                     species = 'human',
-                     group = NULL)
-eqtl <- normalizeGene(eqtl, method = "logNormalize")
+eqtl <- createQTLObject(snpMatrix = testSNP, genedata = testGene)
+eqtl <- normalizeGene(eqtl)
 eqtl <- filterGeneSNP(eqtl,
-                      snp.number.of.cells.percent = 2,
-                      expression.min = 0,
-                      expression.number.of.cells.percent = 2
-                      )
+  snpNumOfCellsPercent = 2,
+  expressionMin = 0,
+  expressionNumOfCellsPercent = 2)
 }

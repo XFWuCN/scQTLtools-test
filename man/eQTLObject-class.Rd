@@ -3,18 +3,18 @@
 \docType{class}
 \name{eQTLObject-class}
 \alias{eQTLObject-class}
-\title{Class "eQTLObject"
+\title{Class 'eQTLObject'
 The eQTLObject class is an R object designed to store data related to eQTL
-(expression quantitative trait loci) analysis, encompassing data lists,
-result data frames, and slots for biClassify, species, and grouping information.}
+analysis, encompassing data lists, result data frames, and layers for
+biClassify, species, and grouping information.}
 \value{
 eQTLObject
 }
 \description{
-Class "eQTLObject"
+Class 'eQTLObject'
 The eQTLObject class is an R object designed to store data related to eQTL
-(expression quantitative trait loci) analysis, encompassing data lists,
-result data frames, and slots for biClassify, species, and grouping information.
+analysis, encompassing data lists, result data frames, and layers for
+biClassify, species, and grouping information.
 }
 \section{Slots}{
 
@@ -27,14 +27,14 @@ and the column names represent cell IDs.}
 \item{\code{eQTLResult}}{The result dataframe obtained the sc-eQTL results.}
 
 \item{\code{biClassify}}{The user chooses whether to convert the counting method of
-the snpMatrix to 1/2, TRUE indicates conversion, and FALSE indicates no
+the snpMatrix to 0, 1, 2, TRUE indicates conversion, and FALSE indicates no
 conversion, default is no conversion.}
 
 \item{\code{species}}{The species that the user wants to select, human or mouse.}
 
-\item{\code{groupBy}}{Options for cell grouping, users can choose celltype, cellstatus,
-etc., depending on metadata.}
+\item{\code{groupBy}}{Options for cell grouping, users can choose celltype,
+cellstatus, etc., depending on metadata.}
 
-\item{\code{useModel}}{model for fitting dataframe. One of zinb, possion and linear.}
+\item{\code{useModel}}{model for fitting dataframe.}
 }}
 

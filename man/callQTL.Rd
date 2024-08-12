@@ -2,18 +2,18 @@
 % Please edit documentation in R/callQTL.R
 \name{callQTL}
 \alias{callQTL}
-\title{callQTL: Uncover single-cell eQTLs exclusively using scRNA-seq data.A function
-designed to identify eQTLs from scRNA-seq data.}
+\title{callQTL: Uncover single-cell eQTLs exclusively using scRNA-seq data.
+A function designed to identify eQTLs from scRNA-seq data.}
 \usage{
 callQTL(
   eQTLObject,
   gene_ids = NULL,
   downstream = NULL,
   upstream = NULL,
-  p.adjust.method = "bonferroni",
+  pAdjustMethod = "bonferroni",
   useModel = "zinb",
-  p.adjust.Threshold = 0.05,
-  logfc.threshold = 0.1
+  pAdjustThreshold = 0.05,
+  logfcThreshold = 0.1
 )
 }
 \arguments{
@@ -21,52 +21,42 @@ callQTL(
 
 \item{gene_ids}{A gene ID or a list of gene IDS.}
 
-\item{downstream}{Being used to match SNPs within a base range defined by the
-start position of the specified gene(s) or all genes.}
+\item{downstream}{Being used to match SNPs within a base range defined by
+the start position of genes.}
 
 \item{upstream}{Being used to match SNPs within a base range defined by the
-end position of the specified gene(s) or all genes.}
+end position of genes.}
 
-\item{p.adjust.method}{Methods for p-value adjusting, one of "bonferroni",
-"holm", "hochberg", "hommel" or "BH". The default option is "bonferroni".}
+\item{pAdjustMethod}{Methods for p-value adjusting, one of 'bonferroni',
+'holm', 'hochberg', 'hommel' or 'BH'. Default by 'bonferroni'.}
 
-\item{useModel}{Model for fitting dataframe, one of "possion", "zinb", or "linear".}
+\item{useModel}{Model for fitting dataframe, one of 'possion', 'zinb', or
+'linear'.}
 
-\item{p.adjust.Threshold}{Only SNP-Gene pairs with adjusted p-values meeting
-the threshold will be displayed. The default value is 0.05.}
+\item{pAdjustThreshold}{Only SNP-Gene pairs with adjusted p-values meeting
+the threshold will be displayed. Default by 0.05.}
 
-\item{logfc.threshold}{Represents the minimum beta threshold for fitting
+\item{logfcThreshold}{Represents the minimum beta threshold for fitting
 SNP-Gene pairs.}
 }
 \value{
-A dataframe, each row describes eQTL discovering result of a SNP-Gene
-pair.
+A dataframe, each row describes eQTL discovering result of a
+SNP-Gene pair.
 }
 \description{
-callQTL: Uncover single-cell eQTLs exclusively using scRNA-seq data.A function
-designed to identify eQTLs from scRNA-seq data.
+callQTL: Uncover single-cell eQTLs exclusively using scRNA-seq data.
+A function designed to identify eQTLs from scRNA-seq data.
 }
 \examples{
-data(testSNP)
-data(testSNP)
-eqtl <- createQTLObject(snpMatrix = testSNP,
-                     genedata = testGene,
-                     biClassify = FALSE,
-                     species = 'human',
-                     group = NULL)
-eqtl <- normalizeGene(eqtl, method = "logNormalize")
-eqtl <- filterGeneSNP(eqtl,
-                      snp.number.of.cells.percent = 2,
-                      expression.min = 0,
-                      expression.number.of.cells.percent = 2
-                      )
-eqtl <- callQTL(eqtl,
-                gene_ids = NULL,
-                downstream = NULL,
-                upstream = NULL,
-                p.adjust.method = "bonferroni",
-                useModel = "poisson",
-                p.adjust.Threshold = 0.05,
-                logfc.threshold = 0.1
-                )
+data(testEQTL)
+eqtl <- callQTL(
+  eQTLObject = testEQTL,
+  gene_ids = NULL,
+  downstream = NULL,
+  upstream = NULL,
+  pAdjustMethod = 'bonferroni',
+  useModel = 'linear',
+  pAdjustThreshold = 0.05,
+  logfcThreshold = 0.025
+)
 }

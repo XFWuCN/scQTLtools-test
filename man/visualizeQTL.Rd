@@ -22,9 +22,11 @@ visualizeQTL(
 
 \item{groupName}{Users can choose one or more than one single cell groups.}
 
-\item{plottype}{Types of plot, one of  "QTLplot", "violin", "boxplot" or "histplot".}
+\item{plottype}{Types of plot,one of "QTLplot","violin","boxplot" or
+"histplot".}
 
-\item{removeoutlier}{Whether identify and remove the outliers. Default by FALSE.}
+\item{removeoutlier}{Whether identify and remove the outliers.
+Default by FALSE.}
 }
 \value{
 list
@@ -33,33 +35,13 @@ list
 visualizeQTL: Visualize the gene-snp pairs by group.
 }
 \examples{
-data(testSNP)
-data(testSNP)
-eqtl <- createQTLObject(snpMatrix = testSNP,
-                     genedata = testGene,
-                     biClassify = FALSE,
-                     species = 'human',
-                     group = NULL)
-eqtl <- normalizeGene(eqtl, method = "logNormalize")
-eqtl <- filterGeneSNP(eqtl,
-                      snp.number.of.cells.percent = 2,
-                      expression.min = 0,
-                      expression.number.of.cells.percent = 2
-                      )
-eqtl <- callQTL(eqtl,
-                gene_ids = NULL,
-                downstream = NULL,
-                upstream = NULL,
-                p.adjust.method = "bonferroni",
-                useModel = "poisson",
-                p.adjust.Threshold = 0.05,
-                logfc.threshold = 0.1
-                )
-visualizeQTL(eqtl,
-             SNPid = "1:632647",
-             Geneid = "RPS27",
-             groupName = NULL,
-             plottype = "QTLplot",
-             removeoutlier = FALSE
-             )
+data(testEQTL)
+## We have to call the eQTLs firstly using `callQTL()`.
+eqtl <- callQTL(eQTLObject = testEQTL, useModel = "linear")
+visualizeQTL(eQTLObject = eqtl,
+SNPid = "1:632647",
+Geneid = "RPS27",
+groupName = NULL,
+plottype = "QTLplot",
+removeoutlier = FALSE)
 }

@@ -11,9 +11,9 @@ A simple \code{matrix}.
 data(testGene)
 }
 \description{
-A dataset containing example gene expression data for testing purposes. 100 rows
-and 2705 colnums. The row names represent gene IDs or SYMBOL and the column
-names represent cell IDs.
+A dataset containing example gene expression data for testing purposes.
+100 rows and 2705 colnums. The row names represent gene IDs or SYMBOL and
+the column names represent cell IDs.
 }
 \examples{
 data(testGene)

@@ -1,1154 +1,195 @@
-#' callQTL: Uncover single-cell eQTLs exclusively using scRNA-seq data.A function
-#' designed to identify eQTLs from scRNA-seq data.
-#'
-#' @param useModel Model for fitting dataframe, one of "possion", "zinb", or "linear".
-#' @param p.adjust.Threshold Only SNP-Gene pairs with adjusted p-values meeting
-#' the threshold will be displayed. The default value is 0.05.
-#' @param p.adjust.method Methods for p-value adjusting, one of "bonferroni",
-#' "holm", "hochberg", "hommel" or "BH". The default option is "bonferroni".
+#' callQTL: Uncover single-cell eQTLs exclusively using scRNA-seq data.
+#' A function designed to identify eQTLs from scRNA-seq data.
+#' @param useModel Model for fitting dataframe, one of 'possion', 'zinb', or
+#' 'linear'.
+#' @param pAdjustThreshold Only SNP-Gene pairs with adjusted p-values meeting
+#' the threshold will be displayed. Default by 0.05.
+#' @param pAdjustMethod Methods for p-value adjusting, one of 'bonferroni',
+#' 'holm', 'hochberg', 'hommel' or 'BH'. Default by 'bonferroni'.
 #' @param eQTLObject An S4 object of class eQTLObject.
 #' @param gene_ids A gene ID or a list of gene IDS.
-#' @param downstream Being used to match SNPs within a base range defined by the
-#' start position of the specified gene(s) or all genes.
+#' @param downstream Being used to match SNPs within a base range defined by
+#' the start position of genes.
 #' @param upstream Being used to match SNPs within a base range defined by the
-#' end position of the specified gene(s) or all genes.
-#' @param logfc.threshold Represents the minimum beta threshold for fitting
+#' end position of genes.
+#' @param logfcThreshold Represents the minimum beta threshold for fitting
 #' SNP-Gene pairs.
-#'
 #' @importFrom Matrix Matrix
-#' @importFrom MASS glm.nb fitdistr
 #' @importFrom stringr str_split
-#' @importFrom VGAM dzinegbin
-#' @importFrom bbmle mle2
-#' @importFrom gamlss gamlssML
-#' @importFrom pscl zeroinfl
-#' @importFrom stats p.adjust pchisq plogis lm glm
-#' @importFrom glmmTMB glmmTMB
 #' @importFrom dplyr mutate_all mutate
 #' @import org.Hs.eg.db
 #' @import org.Mm.eg.db
 #' @import magrittr
-#' @importFrom biomaRt useMart getBM useEnsembl
-#' @importFrom AnnotationDbi mapIds
-#'
-#'
-#' @return A dataframe, each row describes eQTL discovering result of a SNP-Gene
-#' pair.
+#' @return A dataframe, each row describes eQTL discovering result of a
+#' SNP-Gene pair.
 #' @export
-#'
 #' @examples
-#' data(testSNP)
-#' data(testSNP)
-#' eqtl <- createQTLObject(snpMatrix = testSNP,
-#'                      genedata = testGene,
-#'                      biClassify = FALSE,
-#'                      species = 'human',
-#'                      group = NULL)
-#' eqtl <- normalizeGene(eqtl, method = "logNormalize")
-#' eqtl <- filterGeneSNP(eqtl,
-#'                       snp.number.of.cells.percent = 2,
-#'                       expression.min = 0,
-#'                       expression.number.of.cells.percent = 2
-#'                       )
-#' eqtl <- callQTL(eqtl,
-#'                 gene_ids = NULL,
-#'                 downstream = NULL,
-#'                 upstream = NULL,
-#'                 p.adjust.method = "bonferroni",
-#'                 useModel = "poisson",
-#'                 p.adjust.Threshold = 0.05,
-#'                 logfc.threshold = 0.1
-#'                 )
+#' data(testEQTL)
+#' eqtl <- callQTL(
+#'   eQTLObject = testEQTL,
+#'   gene_ids = NULL,
+#'   downstream = NULL,
+#'   upstream = NULL,
+#'   pAdjustMethod = 'bonferroni',
+#'   useModel = 'linear',
+#'   pAdjustThreshold = 0.05,
+#'   logfcThreshold = 0.025
+#' )
+callQTL <- function(eQTLObject,
+                    gene_ids = NULL,
+                    downstream = NULL,
+                    upstream = NULL,
+                    pAdjustMethod = "bonferroni",
+                    useModel = "zinb",
+                    pAdjustThreshold = 0.05,
+                    logfcThreshold = 0.1) {
+    options(warn = -1)
 
+    if (length(eQTLObject@filterData) == 0) {
+        stop("Please filter the data first.")
+    } else {
+    expressionMatrix <- eQTLObject@filterData$expMat
+    snpMatrix <- eQTLObject@filterData$snpMat
+    }
 
-callQTL <- function(
-    eQTLObject,
-    gene_ids = NULL,
-    downstream = NULL,
-    upstream = NULL,
-    p.adjust.method = "bonferroni",
-    useModel = "zinb",
-    p.adjust.Threshold = 0.05,
-    logfc.threshold = 0.1){
+    biClassify <- eQTLObject@biClassify
+    species <- eQTLObject@species
 
-  options(warn = -1)
-  if(length(eQTLObject@filterData) == 0){
-    stop("Please filter the data first.")
-  }else{
-    expressionMatrix = eQTLObject@filterData$expMat
-    snpMatrix = eQTLObject@filterData$snpMat
-  }
-
-  biClassify = eQTLObject@biClassify
-  species = eQTLObject@species
-
-  if(is.null(gene_ids) && is.null(upstream) && is.null(downstream)){
+    if (is.null(gene_ids) && is.null(upstream) && is.null(downstream)) {
     NULL
-  }else{
-    if (!is.null(species) && species != ""){
-      if (species == "human"){
-        snp_dataset = "hsapiens_snp"
-        gene_dataset = "hsapiens_gene_ensembl"
-        OrgDb = org.Hs.eg.db
-      } else if (species == "mouse"){
-        snp_dataset = "mmusculus_snp"
-        gene_dataset = "mmusculus_gene_ensembl"
-        OrgDb = org.Mm.eg.db
-      } else {
-        stop("Please enter 'human' or 'mouse'.")
-      }
     } else {
-      stop("The 'species' variable is NULL or empty.")
-    }
-  }
-
-
-  creat_snps_loc <- function(snp.list){
-
-    snp_mart <- useMart(biomart = "ENSEMBL_MART_SNP", dataset = snp_dataset)
-
-    snps_loc <- getBM(attributes = c("refsnp_id", "chr_name", "chrom_start"),
-                      filters = "snp_filter",
-                      values = snp.list,
-                      mart = snp_mart)
-    colnames(snps_loc)[which(colnames(snps_loc) == "chrom_start")] <- "position"
-    rownames(snps_loc) <- snps_loc[, 1]
-    return(snps_loc)
-  }
-
-  creat_gene_loc <- function(gene.list){
-
-    gene_mart = useEnsembl(biomart = "ensembl",
-                           dataset = gene_dataset)
-    gene.list <- unique(gene.list)
-
-    if(grepl("^ENSG", gene.list[[1]][1])){
-      gene_name = 'ensembl_gene_id'
-
-    }else{
-      gene_name = 'external_gene_name'
-      ensembls <- mapIds(org.Hs.eg.db,
-                         keys = gene.list,
-                         keytype = "SYMBOL",
-                         column = "ENSEMBL",
-                         multiVals = 'first')
-      ensembls = as.data.frame(ensembls)
-      ensembls_id = unique(ensembls$ensembls)
-    }
-
-    gene_attributes=c(gene_name,
-                      'chromosome_name',
-                      'start_position',
-                      'end_position')
-    gene_loc <- getBM(attributes = gene_attributes,
-                      filters = gene_name,
-                      values = gene.list,
-                      mart = gene_mart)
-
-    gene_loc <- gene_loc[grepl("^[0-9]+$", as.character(gene_loc$chromosome_name)), ]
-    rownames(gene_loc) <- NULL
-    return(gene_loc)
-  }
-
-
-  check_snpList <- function(snp.list){
-    if(grepl("^rs", snp.list[[1]][1])){
-      creat_snps_loc(snp.list)
-    } else if(grepl("\\d+:\\d+", snp.list[[1]][1])){
-      snps_df <- data.frame(refsnp_id = character(),
-                            chr_name = character(),
-                            position = numeric(),
-                            stringsAsFactors = FALSE)
-      snps_loc <- snps_df
-      for (i in 1:length(snp.list)){
-        snp_parts <- strsplit(snp.list[i], ":")[[1]]
-        snps_loc <- rbind(snps_loc, data.frame(refsnp_id = snp.list[i],
-                                               chr_name = snp_parts[1],
-                                               position = as.numeric(snp_parts[2])))
-      }
-      return(snps_loc)
-    } else{
-      stop("Error: SNP does not match expected format.")
-    }
-  }
-
-  snp.list <- rownames(snpMatrix)
-  gene.list <- rownames(expressionMatrix)
-
-  if(is.null(gene_ids) && is.null(upstream) && is.null(downstream)){
-    matched_gene <- gene.list
-    matched_snps <- snp.list
-  }else if(!is.null(gene_ids) && is.null(upstream) && is.null(downstream)){
-    matched_snps <- snp.list
-    if (all(gene_ids %in% gene.list)) {
-      matched_gene = gene_ids
+    if (!is.null(species) && species != "") {
+        if (species == "human") {
+            snpDataset <- "hsapiens_snp"
+            geneDataset <- "hsapiens_gene_ensembl"
+            OrgDb <- org.Hs.eg.db
+    } else if (species == "mouse") {
+            snpDataset <- "mmusculus_snp"
+            geneDataset <- "mmusculus_gene_ensembl"
+            OrgDb <- org.Mm.eg.db
+        } else {
+            stop("Please enter 'human' or 'mouse'.")
+        }
     } else {
-      stop("The input gene_ids contain non-existent gene IDs. Please re-enter.")
+        stop("The 'species' variable is NULL or empty.")
+        }
     }
-  }else if(is.null(gene_ids) && !is.null(upstream) && !is.null(downstream)){
+
+    snpList <- rownames(snpMatrix)
+    geneList <- rownames(expressionMatrix)
+
+    if (is.null(gene_ids) && is.null(upstream) && is.null(downstream)) {
+        matched_gene <- geneList
+        matched_snps <- snpList
+    } else if (!is.null(gene_ids) && is.null(upstream) && is.null(downstream)) {
+        matched_snps <- snpList
+    if (all(gene_ids %in% geneList)) {
+        matched_gene <- gene_ids
+    } else {
+    stop("The input gene_ids contain non-existent gene IDs.Please re-enter.")
+    }
+    } else if (is.null(gene_ids) &&
+                !is.null(upstream) &&
+                !is.null(downstream)) {
     if (downstream > 0) {
-      stop("downstream should be negative.")
+        stop("downstream should be negative.")
     }
-    snps_loc <- check_snpList(snp.list)
-    gene_loc <- creat_gene_loc(gene.list)
+    snps_loc <- checkSNPList(snpList, snpDataset)
+    gene_loc <- createGeneLoc(geneList, geneDataset)
 
     matched_gene <- c()
     matched_snps <- c()
 
-    for (i in 1:nrow(gene_loc)) {
-      gene_start1 <- gene_loc$start_position[i] + downstream
-      gene_end1 <- gene_loc$end_position[i] + upstream
+    for (i in seq_len(nrow(gene_loc))) {
+        gene_start1 <- gene_loc$start_position[i] + downstream
+        gene_end1 <- gene_loc$end_position[i] + upstream
 
-      for (j in 1:nrow(snps_loc)) {
-        snp_chr <- snps_loc$chr_name[j]
-        snp_pos <- snps_loc$position[j]
+        for (j in seq_len(nrow(snps_loc))) {
+            snp_chr <- snps_loc$chr_name[j]
+            snp_pos <- snps_loc$position[j]
 
-        if (snp_chr == gene_loc$chromosome_name[i] && snp_pos >= gene_start1 &&
-            snp_pos <= gene_end1) {
-          matched_snps <- c(matched_snps, snps_loc$refsnp_id[j])
-          matched_gene <- c(matched_gene, gene_loc[i, 1])
+        if (snp_chr == gene_loc$chromosome_name[i] &&
+            snp_pos >= gene_start1 && snp_pos <= gene_end1) {
+                matched_snps <- c(matched_snps, snps_loc$refsnp_id[j])
+                matched_gene <- c(matched_gene, gene_loc[i, 1])
+            }
         }
-      }
     }
     matched_snps <- unique(matched_snps)
     matched_gene <- unique(matched_gene)
-
-  }else if(!is.null(gene_ids) && !is.null(upstream) && !is.null(downstream)){
+    } else if (!is.null(gene_ids) &&
+                !is.null(upstream) &&
+                !is.null(downstream)) {
     if (downstream > 0) {
-      stop("downstream should be negative.")
+        stop("downstream should be negative.")
     }
 
-    snps_loc <- check_snpList(snp.list)
+    snps_loc <- checkSNPList(snpList)
 
-    if (all(gene_ids %in% gene.list)) {
-      gene.list = gene_ids
+    if (all(gene_ids %in% geneList)) {
+        geneList <- gene_ids
     } else {
-      stop("The input gene_ids contain non-existent gene IDs. Please re-enter.")
+    stop("The input gene_ids contain non-existent gene IDs.Please re-enter.")
     }
-    gene_loc <- creat_gene_loc(gene.list)
+    gene_loc <- createGeneLoc(geneList)
 
     matched_gene <- c()
     matched_snps <- c()
 
-    for (i in 1:nrow(gene_loc)) {
-      gene_start1 <- gene_loc$start_position[i] + downstream
-      gene_end1 <- gene_loc$end_position[i] + upstream
+    for (i in seq_len(nrow(gene_loc))) {
+        gene_start1 <- gene_loc$start_position[i] + downstream
+        gene_end1 <- gene_loc$end_position[i] + upstream
 
-      for (j in 1:nrow(snps_loc)) {
+        for (j in seq_len(nrow(snps_loc))) {
+            snp_chr <- snps_loc$chr_name[j]
+            snp_pos <- snps_loc$position[j]
 
-        snp_chr <- snps_loc$chr_name[j]
-        snp_pos <- snps_loc$position[j]
-
-        while (snp_chr == gene_loc$chromosome_name[i] && snp_pos >= gene_start1
-               && snp_pos <= gene_end1) {
-          matched_snps <- c(matched_snps, snps_loc$refsnp_id[j])
-          matched_gene <- c(matched_gene, gene_loc[i, 1])
-
+        while (snp_chr == gene_loc$chromosome_name[i] &&
+            snp_pos >= gene_start1 && snp_pos <= gene_end1) {
+                matched_snps <- c(matched_snps, snps_loc$refsnp_id[j])
+                matched_gene <- c(matched_gene, gene_loc[i, 1])
+            }
         }
-      }
-
     }
     matched_snps <- unique(matched_snps)
     matched_gene <- unique(matched_gene)
-  }else{
-    stop("Please enter upstream and downstream simultaneously.")
-  }
-
-  poissonModel <- function(
-    eQTLObject,
-    genelist,
-    snplist,
-    biClassify = FALSE,
-    p.adjust.method = "bonferroni",
-    p.adjust.Threshold = 0.05,
-    logfc.threshold = 0.1){
-
-    expressionMatrix <- round(expressionMatrix * 1000)
-    unique_group <- unique(eQTLObject@groupBy$group)
-
-    result_all <- data.frame()
-
-    message("Start calling eQTL")
-    for(k in unique_group){
-
-      result <- data.frame(
-        SNPid = character(),
-        group = character(),
-        Geneid = character(),
-        pvalue = double(),
-        adjusted_pvalue = double(),
-        b = double(),
-        abs_b = double(),
-        Remark = character(),
-        stringsAsFactors=FALSE)
-
-      split_cells <- rownames(eQTLObject@groupBy)[eQTLObject@groupBy$group == k]
-      expressionMatrix_split <- expressionMatrix[, split_cells]
-      snpMatrix_split <- snpMatrix[, split_cells]
-
-      if(biClassify == FALSE){
-        message(k,':')
-        message('0%   10   20   30   40   50   60   70   80   90   100%' )
-        message('[----|----|----|----|----|----|----|----|----|----|')
-        pb <- progress_bar$new(total = length(snplist),
-                               format = "[:bar]",
-                               clear = FALSE,
-                               width = 51)
-        for(i in 1:length(snplist)){
-          snpid <- snplist[i]
-          snp_mat <- snpMatrix_split[snpid, ]
-          snp_mat <- as.data.frame(snp_mat)
-          snp_mat$cells = rownames(snp_mat)
-
-          replace_2_and_3 <- function(x) {
-            ifelse(x == 2, 3, ifelse(x == 3, 2, x))
-          }
-
-          snp_mat_new <- snp_mat %>%
-            mutate_all(list(~replace_2_and_3(.)))
-
-          genes <- genelist
-
-          for(j in 1:length(genes)){
-            gene_id <- genes[j]
-            gene_mat <- expressionMatrix_split[gene_id, ]
-            gene_mat <- as.data.frame(gene_mat)
-            gene_mat$cells = rownames(gene_mat)
-
-            combined_df <- merge(snp_mat_new, gene_mat, by = "cells")
-            combined_df <- subset(combined_df, snp_mat != 0)
-
-            lmodel = stats::glm(combined_df$gene_mat ~ combined_df$snp_mat,
-                                family = poisson());
-
-            lmout_pvalue = summary(lmodel)$coefficients[2, "Pr(>|z|)"]
-            lmout_b = summary(lmodel)$coefficients[2, "Estimate"]
-
-            new_row <- data.frame(SNPid = snpid,
-                                  group = k,
-                                  Geneid = genes[j],
-                                  pvalue = lmout_pvalue,
-                                  b = lmout_b)
-            result <- rbind(result, new_row)
-          }
-          pb$tick()
-        }
-        message("finished!")
-
-      }else if(biClassify == TRUE){
-
-        snpMatrix_split[snpMatrix_split == 3] <- 2
-
-        message(k,':')
-        message('0%   10   20   30   40   50   60   70   80   90   100%' )
-        message('[----|----|----|----|----|----|----|----|----|----|')
-        pb <- progress_bar$new(total = length(snplist),
-                               format = "[:bar]",
-                               clear = FALSE,
-                               width = 51)
-        for(i in 1:length(snplist)){
-          snpid <- snplist[i]
-          snp_mat <- snpMatrix_split[snpid, ]
-          snp_mat <- as.data.frame(snp_mat)
-          snp_mat$cells = rownames(snp_mat)
-
-          genes <- genelist
-
-          for(j in 1:length(genes)){
-            gene_id <- genes[j]
-            gene_mat <- expressionMatrix_split[gene_id, ]
-            gene_mat <- as.data.frame(gene_mat)
-            gene_mat$cells = rownames(gene_mat)
-
-            combined_df <- merge(snp_mat, gene_mat, by = "cells")
-            combined_df <- subset(combined_df, snp_mat != 0)
-
-            lmodel = stats::glm(combined_df$gene_mat ~ combined_df$snp_mat,
-                                family = poisson());
-
-            lmout_pvalue = summary(lmodel)$coefficients[2, "Pr(>|z|)"]
-            lmout_b = summary(lmodel)$coefficients[2, "Estimate"]
-
-            new_row <- data.frame(SNPid = snpid,
-                                  group = k,
-                                  Geneid = genes[j],
-                                  pvalue = lmout,
-                                  b = lmout_b)
-
-            result <- rbind(result, new_row)
-          }
-          pb$tick()
-        }
-        message("finished!")
-
-      }else{
-        stop("biClassify can only be selected as 'TRUE' or 'FALSE'")
-      }
-
-
-      if (!p.adjust.method %in% c("bonferroni", "holm", "hochberg", "hommel", "BH")) {
-        stop("Invalid p-adjusted method.
-         Please choose from 'bonferroni', 'holm', 'hochberg', 'hommel', or'fdr or BH'.")
-      }
-
-      # adjust p-value
-      result[,"adjusted_pvalue"] <- p.adjust(result[,"pvalue"], method = "BH")
-      result <- result[order(result[,"adjusted_pvalue"]),]
-      rownames(result) <- NULL
-      result <- result[result$adjusted_pvalue <= p.adjust.Threshold, ]
-
-      # abs_b
-      result <- result %>%
-        mutate(abs_b = abs(b))
-
-      result <- result[result$abs_b >= logfc.threshold, ]
-
-      result_all <- rbind(result_all, result)
-
-    }
-    return(result_all)
-
-  }
-
-  zinbModel <- function(
-    eQTLObject,
-    genelist,
-    snplist,
-    biClassify = FALSE,
-    p.adjust.method = "bonferroni",
-    p.adjust.Threshold = 1e-5){
-
-    # p-value correction methods
-    if (!p.adjust.method %in% c("bonferroni", "holm", "hochberg", "hommel", "BH")) {
-      stop("Invalid p-adjusted method.
-           Please choose from 'bonferroni', 'holm', 'hochberg', 'hommel', or'fdr or BH'.")
-    }
-
-    expressionMatrix <- round(expressionMatrix * 1000)
-    unique_group <- unique(eQTLObject@groupBy$group)
-
-    result_all <- data.frame()
-
-    message("Start calling eQTL")
-    for(j in unique_group){
-      if(biClassify == TRUE){
-
-        snpMatrix_split[snpMatrix_split == 3] <- 2
-
-        eQTLcalling <- function(i){
-          if (i %% 100 == 0) {
-            gc()
-          }
-
-          snpid <- snplist[i]
-          ref_cells <- colnames(snpMatrix_split)[snpMatrix_split[snpid,] == 1]
-          alt_cells <- colnames(snpMatrix_split)[snpMatrix_split[snpid,] == 2]
-
-          if(length(ref_cells) > 0 && length(alt_cells) > 0){
-
-            genes <- genelist
-            gene.cnt <- 0
-
-            results_snp <- data.frame(
-              SNPid = character(),
-              group = character(),
-              Geneid = character(),
-              sample_size_1 = integer(),
-              sample_size_2 = integer(),
-              theta_1 = double(),
-              theta_2 = double(),
-              mu_1 = double(),
-              mu_2 = double(),
-              size_1 = double(),
-              size_2 = double(),
-              prob_1 = double(),
-              prob_2 = double(),
-              total_mean_1 = double(),
-              total_mean_2 = double(),
-              foldChange = double(),
-              chi = double(),
-              pvalue = double(),
-              adjusted_pvalue = double(),
-              Remark = character(),
-              stringsAsFactors = FALSE)
-
-            for (gene in genes){
-              gene.cnt <- gene.cnt + 1
-              # gene expression for ref group
-              counts_1 <- unlist(expressionMatrix_split[gene, ref_cells])
-              # gene expression for alt group
-              counts_2 <- unlist(expressionMatrix_split[gene, alt_cells])
-              results_gene <- data.frame(group = j,
-                                         SNPid = snpid,
-                                         Geneid = gene,
-                                         sample_size_1 = length(counts_1),
-                                         sample_size_2 = length(counts_2),
-                                         theta_1 = NA,
-                                         theta_2 = NA,
-                                         mu_1 = NA,
-                                         mu_2 = NA,
-                                         size_1 = NA,
-                                         size_2 = NA,
-                                         prob_1 = NA,
-                                         prob_2 = NA,
-                                         total_mean_1 = NA,
-                                         total_mean_2 = NA,
-                                         foldChange = NA,
-                                         chi = NA,
-                                         pvalue = NA,
-                                         adjusted_pvalue = NA,
-                                         Remark = NA,
-                                         stringsAsFactors = FALSE)
-
-              totalMean_1 <- mean(counts_1)
-              totalMean_2 <- mean(counts_2)
-              foldChange  <- totalMean_1/totalMean_2
-
-              results_gene[1,"total_mean_1"] <- totalMean_1
-              results_gene[1,"total_mean_2"] <- totalMean_2
-              results_gene[1,"foldChange"]   <- foldChange
-
-
-              build_model <- function(counts) {
-
-                options(show.error.messages = FALSE)
-                zinb_gamlssML <- try(gamlssML(counts, family = "ZINBI"),
-                                     silent = TRUE)
-                options(show.error.messages = TRUE)
-
-                if (inherits(pvalue, "try-error")){
-                  print("MLE of ZINB failed! Please choose another model")
-                  return(list(theta = NA, mu = NA, size = NA, prob = NA))
-                }else{
-
-                  zinb <- zinb_gamlssML
-                  theta <- zinb$nu
-                  mu <- zinb$mu
-                  size <- 1 / zinb$sigma
-                  prob <- size / (size + mu)
-                }
-                return(list(theta = theta, mu = mu, size = size, prob = prob))
-              }
-
-              build_model(counts_1)
-              build_model(counts_2)
-
-              params_1 <- build_model(counts_1)
-              theta_1 <- params_1[['theta']]
-              mu_1 <- params_1[['mu']]
-              size_1 <- params_1[['size']]
-              prob_1 <- params_1[['prob']]
-
-              params_2 <- build_model(counts_2)
-              theta_2 <- params_2[['theta']]
-              mu_2 <- params_2[['mu']]
-              size_2 <- params_2[['size']]
-              prob_2 <- params_2[['prob']]
-
-              params_combined <- build_model(c(counts_1, counts_2))
-              theta_res <- params_combined[['theta']]
-              mu_res <- params_combined[['mu']]
-              size_res <- params_combined[['size']]
-              prob_res <- params_combined[['prob']]
-
-              logL <- function(counts_1,
-                               theta_1,
-                               size_1,
-                               prob_1,
-                               counts_2,
-                               theta_2,
-                               size_2,
-                               prob_2){
-                logL_1 <- sum(dzinegbin(counts_1,
-                                        size = size_1,
-                                        prob = prob_1,
-                                        pstr0 = theta_1,
-                                        log = TRUE))
-                logL_2 <- sum(dzinegbin(counts_2,
-                                        size = size_2,
-                                        prob = prob_2,
-                                        pstr0 = theta_2,
-                                        log = TRUE))
-                logL <- logL_1 + logL_2
-                logL
-              }
-              logL_A <- logL(counts_1,
-                             theta_1,
-                             size_1,
-                             prob_1,
-                             counts_2,
-                             theta_2,
-                             size_2,
-                             prob_2)
-              logL_B <- logL(counts_1,
-                             theta_res,
-                             size_res,
-                             prob_res,
-                             counts_2,
-                             theta_res,
-                             size_res,
-                             prob_res)
-              chi <- logL_A - logL_B
-              pvalue <- 1 - pchisq(2 * chi , df = 3)
-
-              results_gene[1,"theta_1"] <- theta_1
-              results_gene[1,"theta_2"] <- theta_2
-              results_gene[1,"mu_1"] <- mu_1
-              results_gene[1,"mu_2"] <- mu_2
-              results_gene[1,"size_1"] <- size_1
-              results_gene[1,"size_2"] <- size_2
-              results_gene[1,"prob_1"] <- prob_1
-              results_gene[1,"prob_2"] <- prob_2
-              results_gene[1,"chi"] <- chi
-              results_gene[1,"pvalue"] <- pvalue
-
-              results_snp <- rbind(results_snp, results_gene)
-            }
-
-            # return
-            return(results_snp)
-
-          }else{
-            results_snp <- data.frame()
-          }
+    } else {
+        stop("Please enter upstream and downstream simultaneously.")
         }
 
 
-        # final result
-        result <- data.frame(
-          SNPid = character(),
-          group = character(),
-          Geneid = character(),
-          sample_size_1 = integer(),
-          sample_size_2 = integer(),
-          theta_1 = double(),
-          theta_2 = double(),
-          mu_1 = double(),
-          mu_2 = double(),
-          size_1 = double(),
-          size_2 = double(),
-          prob_1 = double(),
-          prob_2 = double(),
-          total_mean_1 = double(),
-          total_mean_2 = double(),
-          foldChange = double(),
-          chi = double(),
-          pvalue = double(),
-          adjusted_pvalue = double(),
-          Remark = character(),
-          stringsAsFactors=FALSE)
-
-        split_cells <- rownames(eQTLObject@groupBy)[eQTLObject@groupBy$group == j]
-        expressionMatrix_split <- expressionMatrix[, split_cells]
-        snpMatrix_split <- snpMatrix[, split_cells]
-
-        message(j,':')
-        message('0%   10   20   30   40   50   60   70   80   90   100%' )
-        message('[----|----|----|----|----|----|----|----|----|----|')
-        pb <- progress_bar$new(total = length(snplist),
-                               format = "[:bar]",
-                               clear = FALSE,
-                               width = 51)
-        for(i in 1:length(snplist)){
-          result <- rbind(result, eQTLcalling(i))
-          pb$tick()
-        }
-
-        #change column names
-        colnames(result)[colnames(result) == 'sample_size_1'] <- 'sample_size_Ref'
-        colnames(result)[colnames(result) == 'sample_size_2'] <- 'sample_size_Alt'
-        colnames(result)[colnames(result) == 'theta_1'] <- 'theta_Ref'
-        colnames(result)[colnames(result) == 'theta_2'] <- 'theta_Alt'
-        colnames(result)[colnames(result) == 'mu_1'] <- 'mu_Ref'
-        colnames(result)[colnames(result) == 'mu_2'] <- 'mu_Alt'
-        colnames(result)[colnames(result) == 'size_1'] <- 'size_Ref'
-        colnames(result)[colnames(result) == 'size_2'] <- 'size_Alt'
-        colnames(result)[colnames(result) == 'prob_1'] <- 'prob_Ref'
-        colnames(result)[colnames(result) == 'prob_2'] <- 'prob_Alt'
-        colnames(result)[colnames(result) == 'total_mean_1'] <- 'total_mean_Ref'
-        colnames(result)[colnames(result) == 'total_mean_2'] <- 'total_mean_Alt'
-      }else if(biClassify == FALSE){
-        eQTLcalling <- function(i){
-          if (i %% 100 == 0) {
-            gc()
-          }
-
-          snpid <- snplist[i]
-          AA_cells <- colnames(snpMatrix_split)[snpMatrix_split[snpid,] == 1]
-          Aa_cells <- colnames(snpMatrix_split)[snpMatrix_split[snpid,] == 3]
-          aa_cells <- colnames(snpMatrix_split)[snpMatrix_split[snpid,] == 2]
-
-          if(length(AA_cells) > 0 && length(Aa_cells) > 0 && length(aa_cells) > 0){
-
-            genes <- genelist
-            gene.cnt <- 0
-
-            #snp
-            results_snp <- data.frame(SNPid = character(),
-                                      group = character(),
-                                      Geneid = character(),
-                                      sample_size_1 = integer(),
-                                      sample_size_2 = integer(),
-                                      sample_size_3 = integer(),
-                                      theta_1 = double(),
-                                      theta_2 = double(),
-                                      theta_3 = double(),
-                                      mu_1 = double(),
-                                      mu_2 = double(),
-                                      mu_3 = double(),
-                                      size_1 = double(),
-                                      size_2 = double(),
-                                      size_3 = double(),
-                                      prob_1 = double(),
-                                      prob_2 = double(),
-                                      prob_3 = double(),
-                                      total_mean_1 = double(),
-                                      total_mean_2 = double(),
-                                      total_mean_3 = double(),
-                                      chi = double(),
-                                      pvalue = double(),
-                                      adjusted_pvalue = double(),
-                                      Remark = character(),
-                                      stringsAsFactors=FALSE)
-
-            #gene
-            for (gene in genes){
-              gene.cnt <- gene.cnt + 1
-              counts_1 <- unlist(expressionMatrix_split[gene, AA_cells])
-              counts_2 <- unlist(expressionMatrix_split[gene, Aa_cells])
-              counts_3 <- unlist(expressionMatrix_split[gene, aa_cells])
-              results_gene <- data.frame(group = j,
-                                         SNPid = snpid,
-                                         Geneid = gene,
-                                         sample_size_1 = length(counts_1),
-                                         sample_size_2 = length(counts_2),
-                                         sample_size_3 = length(counts_3),
-                                         theta_1 = NA,
-                                         theta_2 = NA,
-                                         theta_3 = NA,
-                                         mu_1 = NA,
-                                         mu_2 = NA,
-                                         mu_3 = NA,
-                                         size_1 = NA,
-                                         size_2 = NA,
-                                         size_3 = NA,
-                                         prob_1 = NA,
-                                         prob_2 = NA,
-                                         prob_3 = NA,
-                                         total_mean_1 = NA,
-                                         total_mean_2 = NA,
-                                         total_mean_3 = NA,
-                                         chi = NA,
-                                         pvalue = NA,
-                                         adjusted_pvalue = NA,
-                                         Remark = NA,
-                                         stringsAsFactors=FALSE)
-
-              #calculate mean
-              totalMean_1 <- mean(counts_1)
-              totalMean_2 <- mean(counts_2)
-              totalMean_3 <- mean(counts_3)
-
-              #filling data
-              results_gene[1,"total_mean_1"] <- totalMean_1
-              results_gene[1,"total_mean_2"] <- totalMean_2
-              results_gene[1,"total_mean_3"] <- totalMean_3
-
-              #build ZINB model
-              zinb <- function(counts) {
-                if (sum(counts == 0) == length(counts)) {
-                  theta <- 1
-                  mu <- 0
-                  size <- 1
-                  prob <- size / (size + mu)
-                } else {
-                  options(show.error.messages = FALSE)
-                  zinb_gamlssML <- try(gamlssML(counts,
-                                                family = "ZINBI"),
-                                       silent = TRUE)
-                  options(show.error.messages = TRUE)
-                  if ('try-error' %in% class(zinb_gamlssML)) {
-                    zinb_zeroinfl <- try(zeroinfl(formula = counts ~ 1 | 1,
-                                                  dist = "negbin"),
-                                         silent = TRUE)
-                    if ('try-error' %in% class(zinb_zeroinfl)) {
-                      print("MLE of ZINB failed!")
-                      return(list(theta = NA, mu = NA, size = NA, prob = NA))
-                    } else {
-                      zinb <- zinb_zeroinfl
-                      theta <- plogis(zinb$coefficients$zero)
-                      mu <- exp(zinb$coefficients$count)
-                      size <- zinb$theta
-                      prob <- size / (size + mu)
-                    }
-                  } else {
-                    zinb <- zinb_gamlssML
-                    theta <- zinb$nu
-                    mu <- zinb$mu
-                    size <- 1 / zinb$sigma
-                    prob <- size / (size + mu)
-                  }
-                }
-                return(list(theta = theta, mu = mu, size = size, prob = prob))
-              }
-
-              zinb(counts_1)
-              zinb(counts_2)
-              zinb(counts_3)
-
-              #estimate AA params
-              params_1 <- zinb(counts_1)
-              theta_1 <- params_1[['theta']]
-              mu_1 <- params_1[['mu']]
-              size_1 <- params_1[['size']]
-              prob_1 <- params_1[['prob']]
-
-              #estimate Aa params
-              params_2 <- zinb(counts_2)
-              theta_2 <- params_2[['theta']]
-              mu_2 <- params_2[['mu']]
-              size_2 <- params_2[['size']]
-              prob_2 <- params_2[['prob']]
-
-              #estimate aa params
-              params_3 <- zinb(counts_3)
-              theta_3 <- params_3[['theta']]
-              mu_3 <- params_3[['mu']]
-              size_3 <- params_3[['size']]
-              prob_3 <- params_3[['prob']]
-
-              #combine AA,Aa and aa
-              params_combined <- zinb(c(counts_1, counts_2, counts_3))
-              theta_res <- params_combined[['theta']]
-              mu_res <- params_combined[['mu']]
-              size_res <- params_combined[['size']]
-              prob_res <- params_combined[['prob']]
-
-              #calculate p-value
-              logL <- function(counts_1,
-                               theta_1,
-                               size_1,
-                               prob_1,
-                               counts_2,
-                               theta_2,
-                               size_2,
-                               prob_2,
-                               counts_3,
-                               theta_3,
-                               size_3,
-                               prob_3){
-                logL_1 <- sum(dzinegbin(counts_1, size = size_1, prob = prob_1,
-                                        pstr0 = theta_1, log = TRUE))
-                logL_2 <- sum(dzinegbin(counts_2, size = size_2, prob = prob_2,
-                                        pstr0 = theta_2, log = TRUE))
-                logL_3 <- sum(dzinegbin(counts_3, size = size_3, prob = prob_3,
-                                        pstr0 = theta_3, log = TRUE))
-                logL <- logL_1 + logL_2 + logL_3
-                logL
-              }
-
-              logL_1 <- logL(counts_1, theta_1, size_1, prob_1, counts_2, theta_2,
-                             size_2, prob_2, counts_3, theta_3, size_3, prob_3)
-              logL_2 <- logL(counts_1, theta_res, size_res, prob_res, counts_2,
-                             theta_res, size_res, prob_res, counts_3, theta_res,
-                             size_res, prob_res)
-              chi <- logL_1 - logL_2
-
-              pvalue <- try(1 - pchisq(2 * chi , df = 3))
-              if (class(pvalue) == "try-error") return(NA)
-
-              #filling data into data frame
-              results_gene[1,"theta_1"] <- theta_1
-              results_gene[1,"theta_2"] <- theta_2
-              results_gene[1,"theta_3"] <- theta_3
-              results_gene[1,"mu_1"] <- mu_1
-              results_gene[1,"mu_2"] <- mu_2
-              results_gene[1,"mu_3"] <- mu_3
-              results_gene[1,"size_1"] <- size_1
-              results_gene[1,"size_2"] <- size_2
-              results_gene[1,"size_3"] <- size_3
-              results_gene[1,"prob_1"] <- prob_1
-              results_gene[1,"prob_2"] <- prob_2
-              results_gene[1,"prob_3"] <- prob_3
-              results_gene[1,"chi"] <- chi
-              results_gene[1,"pvalue"] <- pvalue
-
-              results_snp <- rbind(results_snp, results_gene)
-            }
-
-            #return
-            return(results_snp)
-
-          }else{
-            results_snp <- data.frame()
-          }
-        }
-
-        #final result
-        result <- data.frame(
-          group = character(),
-          SNPid = character(),
-          Geneid = character(),
-          sample_size_1 = integer(),
-          sample_size_2 = integer(),
-          sample_size_3 = integer(),
-          theta_1 = double(),
-          theta_2 = double(),
-          theta_3 = double(),
-          mu_1 = double(),
-          mu_2 = double(),
-          mu_3 = double(),
-          size_1 = double(),
-          size_2 = double(),
-          size_3 = double(),
-          prob_1 = double(),
-          prob_2 = double(),
-          prob_3 = double(),
-          total_mean_1 = double(),
-          total_mean_2 = double(),
-          total_mean_3 = double(),
-          chi = double(),
-          pvalue = double(),
-          adjusted_pvalue = double(),
-          Remark = character(),
-          stringsAsFactors=FALSE)
-
-        split_cells <- rownames(eQTLObject@groupBy)[eQTLObject@groupBy$group == j]
-        expressionMatrix_split <- expressionMatrix[, split_cells]
-        snpMatrix_split <- snpMatrix[, split_cells]
-
-        message(j,':')
-        message('0%   10   20   30   40   50   60   70   80   90   100%' )
-        message('[----|----|----|----|----|----|----|----|----|----|')
-        pb <- progress_bar$new(total = length(snplist),
-                               format = "[:bar]",
-                               clear = FALSE,
-                               width = 51)
-        for(i in 1:length(snplist)){
-          result <- rbind(result, eQTLcalling(i))
-          pb$tick()
-        }
-
-        message("finished!")
-
-        #change column names
-        colnames(result)[colnames(result) == 'sample_size_1'] <- 'sample_size_AA'
-        colnames(result)[colnames(result) == 'sample_size_2'] <- 'sample_size_Aa'
-        colnames(result)[colnames(result) == 'sample_size_3'] <- 'sample_size_aa'
-        colnames(result)[colnames(result) == 'theta_1'] <- 'theta_AA'
-        colnames(result)[colnames(result) == 'theta_2'] <- 'theta_Aa'
-        colnames(result)[colnames(result) == 'theta_3'] <- 'theta_aa'
-        colnames(result)[colnames(result) == 'mu_1'] <- 'mu_AA'
-        colnames(result)[colnames(result) == 'mu_2'] <- 'mu_Aa'
-        colnames(result)[colnames(result) == 'mu_3'] <- 'mu_aa'
-        colnames(result)[colnames(result) == 'size_1'] <- 'size_AA'
-        colnames(result)[colnames(result) == 'size_2'] <- 'size_Aa'
-        colnames(result)[colnames(result) == 'size_3'] <- 'size_aa'
-        colnames(result)[colnames(result) == 'prob_1'] <- 'prob_AA'
-        colnames(result)[colnames(result) == 'prob_2'] <- 'prob_Aa'
-        colnames(result)[colnames(result) == 'prob_3'] <- 'prob_aa'
-        colnames(result)[colnames(result) == 'total_mean_1'] <- 'total_mean_AA'
-        colnames(result)[colnames(result) == 'total_mean_2'] <- 'total_mean_Aa'
-        colnames(result)[colnames(result) == 'total_mean_3'] <- 'total_mean_aa'
-      }else{
-        stop("biClassify can only be selected as 'TRUE' or 'FALSE'")
-      }
-
-
-      # adjust p-value
-      result[,"adjusted_pvalue"] <- p.adjust(result[,"pvalue"],
-                                             method = p.adjust.method)
-      result <- result[order(result[,"adjusted_pvalue"]),]
-      rownames(result) <- NULL
-      result <- result[result$adjusted_pvalue <= p.adjust.Threshold, ]
-      result_all <- rbind(result_all, result)
-    }
-    return(result_all)
-
-  }
-
-
-  linearModel <- function(
-    eQTLObject,
-    genelist,
-    snplist,
-    biClassify = FALSE,
-    p.adjust.method = "bonferroni",
-    p.adjust.Threshold = 0.05,
-    logfc.threshold = 0.1){
-
-    unique_group <- unique(eQTLObject@groupBy$group)
-
-    result_all <- data.frame()
-
-    message("Start calling eQTL")
-    for(k in unique_group){
-
-      result <- data.frame(
-        SNPid = character(),
-        group = character(),
-        Geneid = character(),
-        pvalue = double(),
-        adjusted_pvalue = double(),
-        b = double(),
-        abs_b = double(),
-        Remark = character(),
-        stringsAsFactors=FALSE)
-
-      split_cells <- rownames(eQTLObject@groupBy)[eQTLObject@groupBy$group == k]
-      expressionMatrix_split <- expressionMatrix[, split_cells]
-      snpMatrix_split <- snpMatrix[, split_cells]
-
-      if(biClassify == FALSE){
-
-        message(k,':')
-        message('0%   10   20   30   40   50   60   70   80   90   100%' )
-        message('[----|----|----|----|----|----|----|----|----|----|')
-        pb <- progress_bar$new(total = length(snplist),
-                               format = "[:bar]",
-                               clear = FALSE,
-                               width = 51)
-        for(i in 1:length(snplist)){
-          snpid <- snplist[i]
-          snp_mat <- snpMatrix_split[snpid, ]
-          snp_mat <- as.data.frame(snp_mat)
-          snp_mat$cells = rownames(snp_mat)
-
-          replace_2_and_3 <- function(x) {
-            ifelse(x == 2, 3, ifelse(x == 3, 2, x))
-          }
-
-          snp_mat_new <- snp_mat %>%
-            mutate_all(list(~replace_2_and_3(.)))
-
-          genes <- genelist
-
-          for(j in 1:length(genes)){
-            gene_id <- genes[j]
-            gene_mat <- expressionMatrix_split[gene_id, ]
-            gene_mat <- as.data.frame(gene_mat)
-            gene_mat$cells = rownames(gene_mat)
-
-            combined_df <- merge(snp_mat, gene_mat, by = "cells")
-            combined_df <- subset(combined_df, snp_mat != 5)
-
-            lmodel = lm(gene_mat ~ snp_mat, data = combined_df);
-
-            lmout_pvalue = summary(lmodel)$coefficients[2, "Pr(>|t|)"]
-            lmout_b = summary(lmodel)$coefficients[2, "Estimate"]
-
-            new_row <- data.frame(SNPid = snpid,
-                                  group = k,
-                                  Geneid = genes[j],
-                                  pvalue = lmout_pvalue,
-                                  b = lmout_b)
-            result <- rbind(result, new_row)
-          }
-          pb$tick()
-        }
-        message("finished!")
-
-      }else if(biClassify == TRUE){
-
-        snpMatrix_split[snpMatrix_split == 3] <- 2
-
-        message(k,':')
-        message('0%   10   20   30   40   50   60   70   80   90   100%' )
-        message('[----|----|----|----|----|----|----|----|----|----|')
-        pb <- progress_bar$new(total = length(snplist),
-                               format = "[:bar]",
-                               clear = FALSE,
-                               width = 51)
-        for(i in 1:length(snplist)){
-          snpid <- snplist[i]
-          snp_mat <- snpMatrix_split[snpid, ]
-          snp_mat <- as.data.frame(snp_mat)
-          snp_mat$cells = rownames(snp_mat)
-
-          genes <- genelist
-
-          for(j in 1:length(genes)){
-            gene_id <- genes[j]
-            gene_mat <- expressionMatrix_split[gene_id, ]
-            gene_mat <- as.data.frame(gene_mat)
-            gene_mat$cells = rownames(gene_mat)
-
-            combined_df <- merge(snp_mat, gene_mat, by = "cells")
-            combined_df <- subset(combined_df, snp_mat != 5)
-
-            lmodel = lm(gene_mat ~ snp_mat, data = combined_df);
-
-            lmout_pvalue = summary(lmodel)$coefficients[2, "Pr(>|t|)"]
-            lmout_b = summary(lmodel)$coefficients[2, "Estimate"]
-
-            new_row <- data.frame(SNPid = snpid,
-                                  group = k,
-                                  Geneid = genes[j],
-                                  pvalue = lmout,
-                                  b = lmout_b)
-
-            result <- rbind(result, new_row)
-          }
-          pb$tick()
-        }
-        message("finished!")
-
-      }else{
-        stop("biClassify can only be selected as 'TRUE' or 'FALSE'")
-      }
-
-
-      if (!p.adjust.method %in% c("bonferroni", "holm", "hochberg", "hommel", "BH")) {
-        stop("Invalid p-adjusted method.
-           Please choose from 'bonferroni', 'holm', 'hochberg', 'hommel', or'fdr or BH'.")
-      }
-
-      # adjust p-value
-      result[,"adjusted_pvalue"] <- p.adjust(result[,"pvalue"], method = "BH")
-      result <- result[order(result[,"adjusted_pvalue"]),]
-      rownames(result) <- NULL
-      result <- result[result$adjusted_pvalue <= p.adjust.Threshold, ]
-
-      # abs_b
-      result <- result %>%
-        mutate(abs_b = abs(b))
-
-      result <- result[result$abs_b >= logfc.threshold, ]
-
-      result_all <- rbind(result_all, result)
-
-    }
-    return(result_all)
-  }
-
-
-  if(useModel == "zinb"){
+    if (useModel == "zinb") {
     result <- zinbModel(eQTLObject = eQTLObject,
-                        genelist = matched_gene,
-                        snplist = matched_snps,
+                        geneIDs = matched_gene,
+                        snpIDs = matched_snps,
                         biClassify = biClassify,
-                        p.adjust.method = p.adjust.method,
-                        p.adjust.Threshold = p.adjust.Threshold)
-  }else if(useModel == "poisson"){
-    result <- poissonModel(eQTLObject = eQTLObject,
-                           genelist = matched_gene,
-                           snplist = matched_snps,
-                           biClassify = biClassify,
-                           p.adjust.method = p.adjust.method,
-                           p.adjust.Threshold = p.adjust.Threshold)
-  }else if(useModel == "linear"){
-    result <- linearModel(eQTLObject = eQTLObject,
-                          genelist = matched_gene,
-                          snplist = matched_snps,
-                          biClassify = biClassify,
-                          p.adjust.method = p.adjust.method,
-                          p.adjust.Threshold = p.adjust.Threshold,
-                          logfc.threshold = logfc.threshold)
-  }else{
-    stop("Invalid model Please choose from 'zinb', 'poisson' , or 'linear'.")
-  }
+                        pAdjustMethod = pAdjustMethod,
+                        pAdjustThreshold = pAdjustThreshold)
+    } else if (useModel == "poisson") {
+    result <- poissonModel(
+        eQTLObject = eQTLObject,
+        geneIDs = matched_gene,
+        snpIDs = matched_snps,
+        biClassify = biClassify,
+        pAdjustMethod = pAdjustMethod,
+        pAdjustThreshold = pAdjustThreshold,
+        logfcThreshold = logfcThreshold
+        )
+    } else if (useModel == "linear") {
+    result <- linearModel(
+        eQTLObject = eQTLObject,
+        geneIDs = matched_gene,
+        snpIDs = matched_snps,
+        biClassify = biClassify,
+        pAdjustMethod = pAdjustMethod,
+        pAdjustThreshold = pAdjustThreshold,
+        logfcThreshold = logfcThreshold)
+    } else {
+        stop("Invalid model Please choose from 'zinb','poisson',or 'linear'.")
+        }
 
-  options(warn = 0)
-  eQTLObject@eQTLResult <- result
-  return(eQTLObject)
-}
+    options(warn = 0)
+    eQTLObject@useModel <- useModel
+    eQTLObject@eQTLResult <- result
+    return(eQTLObject)
+    }

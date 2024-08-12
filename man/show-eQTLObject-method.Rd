@@ -9,7 +9,14 @@
 \arguments{
 \item{object}{An S4 object of class eQTLObject.}
 }
+\value{
+information of eQTLObject
+}
 \description{
-This method is used to display information about an object of class eQTLObject.
-When called on an eQTLObject, it prints a descriptive message to the console.
+This method is to display information about an object of class eQTLObject.
+When called on an eQTLObject, it prints a descriptive message to the console
+}
+\examples{
+data(testEQTL)
+testEQTL
 }

@@ -2,7 +2,7 @@
 % Please edit documentation in R/normalizeGene.R
 \name{normalizeGene}
 \alias{normalizeGene}
-\title{normalizeGene:Normalize the gene expression data.}
+\title{normalizeGene: Normalize the gene expression data.}
 \usage{
 normalizeGene(eQTLObject, method = "logNormalize")
 }
@@ -17,18 +17,11 @@ A normalized gene expression matrix.
 }
 \description{
 Gene expression matrix normalization is necessary to eliminate
-technical biases and variabilities, ensuring accurate and comparable analysis
-of gene expression data. Here we provide `normalizeGene()`to normalize the data.
+technical biases and variabilities, ensuring accurate and comparable
+analysis of gene expression data. Here we provide `normalizeGene()`to
+normalize the data.
 }
 \examples{
-# Load test data for cisSceQTL
-data(testGene)
-data(testSNP)
-eqtl <- createQTLObject(snpMatrix = testSNP,
-                        genedata = testGene,
-                        biClassify = FALSE,
-                        species = 'human',
-                        group = NULL)
-# normalize the data
-eqtl <- normalizeGene(eqtl, method = "logNormalize")
+data(testEQTL)
+eqtl <- normalizeGene(testEQTL, method = "logNormalize")
 }
