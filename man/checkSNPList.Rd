@@ -24,5 +24,5 @@ snpDataset <- 'hsapiens_snp'
 snps_loc <- checkSNPList(
   snpList = snpList,
   snpDataset = snpDataset
-)
+  )
 }
