@@ -1,13 +1,13 @@
 # scQTLtools:An R package for single-cell eQTL analysis.
 
 
-# Introduction
+## Introduction
 Expression quantitative trait loci (eQTL) analysis links variations in 
 gene expression levels to genotypes. This package attempts to identify genetic
 variants that affect the expression of genes at a single-cell level, and can 
 also do cis-eQTL analysis, visualize the results. 
 
-# Citation
+## Citation
 
 If you find this tool useful, please cite:
 
@@ -17,7 +17,7 @@ If you find this tool useful, please cite:
 
 ------------------------------------------------------------------------
 
-# Installation
+## Installation
 
 ```{r, eval = FALSE}
 if (!require("BiocManager"))
@@ -26,7 +26,7 @@ BiocManager::install("scQTLtools")
 ```
 
 
-# Overview of the package
+## Overview of the package
 
 scQTLtools functions can be categorized into mainly single-cell eQTL analysis 
 and Visualization modules. Each of these functions and a short description is 
@@ -36,7 +36,7 @@ summarized as shown below.
 ***[Overview](vignettes/Overview.svg)***
 
 
-# Required input files
+## Required input files
 The input file requires genotype data, as well as either a gene expression 
 matrix or a SeuratObject.
 
@@ -65,7 +65,7 @@ data(testSNP2)
 ```
 
 
-# Create eqtl object
+## Create eqtl object
 The createQTLObject class is an R object designed to store data related to eQTL
 analysis, encompassing data lists, result data frames, and slots for 
 biClassify, species, and group information.
@@ -108,7 +108,7 @@ eqtl_seurat <- createQTLObject(
 ```
 
 
-# Normalize gene expression matrix
+## Normalize gene expression matrix
 Use `normalizeGene()` to normalize the gene expression matrix.
 
 **Example**
@@ -120,7 +120,7 @@ eqtl_matrix  <- normalizeGene(
 ```
 
 
-# Identify the valid gene snp pairs
+## Identify the valid gene snp pairs
 Here we use `filterGeneSNP()` to filter snp gene pairs.
 
 **Example**
@@ -142,7 +142,7 @@ eqtl_seurat <- filterGeneSNP(
 ```
 
 
-# Call single cell eQTL
+## Call single cell eQTL
 Here we use `callQTL()` to do single cell eQTL analysis.
 
 **Example**
@@ -210,7 +210,7 @@ eqtl3_matrix <- callQTL(
 ```
 
 
-# Visualize the result.
+## Visualize the result.
 Here we use `visualizeQTL()` to visualize the result. There are four types of
 plots available to visualize sc-eQTL results. Users can choose "histplot",
 "violin", "boxplot", or "QTLplot". 
