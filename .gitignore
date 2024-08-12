@@ -7,7 +7,7 @@
 .Rprofile
 *.Rproj
 .Rproj
-.Rproj.user
+
 hidden_file_ext = c(
     ".renviron", ".rprofile", ".rproj", ".rproj.user", ".rhistory",
     ".rapp.history", ".o", ".sl", ".so", ".dylib", ".a", ".dll",
