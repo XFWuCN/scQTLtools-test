@@ -33,7 +33,7 @@ and Visualization modules. Each of these functions and a short description is
 summarized as shown below.
 
 
-![ ](Overview.svg){width=90%}
+***[vignettes](vignettes/Overview.svg)***
 
 
 # Required input files
