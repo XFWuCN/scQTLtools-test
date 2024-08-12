@@ -9,18 +9,18 @@ eqtl <- createQTLObject(snpMatrix = testSNP,
 eqtl <- normalizeGene(eqtl, method = "logNormalize")
 
 eqtl <- filterGeneSNP(eQTLObject = eqtl,
-                      snp.number.of.cells.percent = 2,
-                      expression.min = 0,
-                      expression.number.of.cells.percent = 2)
+                      snpNumOfCellsPercent = 2,
+                      expressionMin = 0,
+                      expressionNumOfCellsPercent = 2)
 
 eqtl <- callQTL(eQTLObject = eqtl,
                 gene_ids = NULL,
                 downstream = NULL,
                 upstream = NULL,
-                p.adjust.method = "bonferroni",
-                useModel = "zinb",
-                p.adjust.Threshold = 0.05,
-                logfc.threshold = 0.1)
+                pAdjustMethod = "bonferroni",
+                useModel = "poisson",
+                pAdjustThreshold = 0.05,
+                logfcThreshold = 0.1)
 
 
 test_that("visualizeQTL function behaves as expected", {
@@ -43,23 +43,26 @@ test_that("visualizeQTL function behaves as expected", {
 
   # when specific group
   data(testSeurat)
-  eqtl <- createQTLObject(snpMatrix = testSNP,
+  data("testSNP2")
+  eqtl <- createQTLObject(snpMatrix = testSNP2,
                           genedata = testSeurat,
                           biClassify = FALSE,
                           species = 'human',
                           group = "celltype")
   eqtl <- normalizeGene(eqtl, method = "logNormalize")
   eqtl <- filterGeneSNP(eQTLObject = eqtl,
-                        snp.number.of.cells.percent = 2,
-                        expression.min = 0,
-                        expression.number.of.cells.percent = 2)
+                        snpNumOfCellsPercent = 2,
+                        expressionMin = 0,
+                        expressionNumOfCellsPercent = 2)
   eqtl <- callQTL(eQTLObject = eqtl,
-                  useModel = "poisson")
+                  useModel = "linear",
+                  pAdjustThreshold = 0.05,
+                  logfcThreshold = 0.025)
   plot5 <- visualizeQTL(eqtl, SNPid = "1:632647", Geneid = "RPS27", groupName = "GMP", plottype = "QTLplot")
   expect_true(is.list(plot5))
 
   # test invalid plot types
   expect_error(visualizeQTL(eqtl, SNPid = "1:632647", Geneid = "RPS27", plottype = "invalid_type"),
                "Invalid plottype,
-         Please choose from 'QTLplot', 'violin' , 'boxplot' or 'histplot'.")
+        Please choose from 'QTLplot', 'violin' , 'boxplot' or 'histplot'.")
 })

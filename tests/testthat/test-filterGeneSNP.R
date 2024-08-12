@@ -27,9 +27,10 @@ test_that("filterGeneSNP correctly filters SNP and expression matrices", {
   expect_true(is.matrix(eqtl_filtered@filterData$snpMat))
 
   # Test case 2: Adjusted parameters
-  eqtl_filtered <- filterGeneSNP(eqtl, snp.number.of.cells.percent = 3,
-                                 expression.min = 0.5,
-                                 expression.number.of.cells.percent = 3)
+  eqtl_filtered <- filterGeneSNP(eqtl,
+                                 snpNumOfCellsPercent = 3,
+                                 expressionMin = 0.5,
+                                 expressionNumOfCellsPercent = 3)
   expect_true(is.matrix(eqtl_filtered@filterData$expMat))
   expect_true(is.matrix(eqtl_filtered@filterData$snpMat))
 

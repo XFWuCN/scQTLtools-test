@@ -1,4 +1,3 @@
-context("Test normalizing gene expression matrix.")
 library(DESeq2)
 library(limma)
 

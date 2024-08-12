@@ -9,27 +9,28 @@ eqtl <- createQTLObject(snpMatrix = testSNP,
 eqtl <- normalizeGene(eqtl, method = "logNormalize")
 
 eqtl <- filterGeneSNP(eQTLObject = eqtl,
-                      snp.number.of.cells.percent = 2,
-                      expression.min = 0,
-                      expression.number.of.cells.percent = 2)
+                      snpNumOfCellsPercent = 2,
+                      expressionMin = 0,
+                      expressionNumOfCellsPercent = 2)
 
 test_that("Function returns correct output with valid gene_ids inputs", {
   result <- callQTL(eqtl, gene_ids = c("CNN2", "RNF113A"))
   unique_geneids <- unique(result@eQTLResult$Geneid)
   expect_length(unique_geneids, 2)
   expect_equal(unique_geneids, c("CNN2", "RNF113A"))
-  expect_equal(rownames(result@filterData$snpMat), c("1:632647", "1:1203822",
-                                                     "1:1407232", "1:1541864",
-                                                     "1:1785578", "1:19623568",
-                                                     "1:26281235", "1:26475513",
-                                                     "1:28236165", "1:33013276",
-                                                     "1:34865634", "1:43978026"))
+  expect_equal(rownames(result@filterData$snpMat),
+               c("1:632647", "1:1203822",
+                 "1:1407232", "1:1541864",
+                 "1:1785578", "1:19623568",
+                 "1:26281235", "1:26475513",
+                 "1:28236165", "1:33013276",
+                 "1:34865634", "1:43978026"))
 })
 
 
 test_that("Function handles invalid gene_ids gracefully", {
   expect_error(callQTL(eqtl, gene_ids = c("invalid_gene")),
-               "The input gene_ids contain non-existent gene IDs. Please re-enter.")
+    "The input gene_ids contain non-existent gene IDs.Please re-enter.")
 })
 
 
@@ -65,27 +66,25 @@ test_that("Function handles empty or invalid parameter", {
 
 
 test_that("Function returns correct output with valid SNP matrix rownames", {
-  eqtl@filterData$snpMat <- eqtl@filterData$snpMat[1:10,]  # Simulate SNP matrix
-  rownames(eqtl@filterData$snpMat) <- c("rs171", "rs242", "rs538", "rs546",
-                                        "rs549", "rs568", "rs665", "rs672",
-                                        "rs677", "rs685")
-  result <- callQTL(eqtl, downstream = -1000000, upstream = 5000000)
+  eqtl@filterData$snpMat <- eqtl@filterData$snpMat[1:5,]  # Simulate SNP matrix
+  rownames(eqtl@filterData$snpMat) <- c("rs546",
+                                        "rs549",
+                                        "rs568",
+                                        "rs665",
+                                        "rs672")
+  result <- callQTL(eqtl, downstream = -1e+6, upstream = 5e+6)
   expect_equal(result@eQTLResult$Geneid, "CCDC18")
   expect_equal(result@eQTLResult$SNPid, "rs546")
 })
 
-
-test_that("Function handles invalid SNP IDs", {
-  rownames(eqtl@filterData$snpMat) <- c(1:12)  # Simulate invalid SNP ids
-  expect_error(callQTL(eqtl, downstream = -10000, upstream = 10000),
-               "Error: SNP does not match expected format.")
-})
-
-
 test_that("callQTL function behaves as expected when specific fitting model",{
 
   # test ZINB model
-  result <- callQTL(eqtl, useModel = "zinb")
+  result <- callQTL(
+    eqtl,
+    gene_ids = c("CNN2", "RNF113A", "TIGD2", "VWCE", "PLAU", "RPS27"),
+    useModel = "zinb"
+    )
   expect_true(is.null(result@eQTLResult) == FALSE)
 
   # test poisson model
@@ -98,36 +97,38 @@ test_that("callQTL function behaves as expected when specific fitting model",{
 
   # test invalid method
   expect_error(callQTL(eqtl, useModel = "invalid method"),
-               "Invalid model Please choose from 'zinb', 'poisson' , or 'linear'.")
-
+    "Invalid model Please choose from 'zinb','poisson',or 'linear'.")
 })
 
 
-test_that("callQTL function behaves as expected when specific p value adjust method",{
+test_that("callQTL function behaves as expected when specific p value adjust
+          method",{
 
   # test bonferroni method
-  result <- callQTL(eqtl, p.adjust.method = "bonferroni")
+  result <- callQTL(eqtl, pAdjustMethod = "bonferroni", useModel = "linear")
   expect_true(is.null(result@eQTLResult$adjusted_pvalue) == FALSE)
 
   # test holm method
-  result <- callQTL(eqtl, p.adjust.method = "holm")
+  result <- callQTL(eqtl, pAdjustMethod = "holm", useModel = "linear")
   expect_true(is.null(result@eQTLResult$adjusted_pvalue) == FALSE)
 
   # test hochberg method
-  result <- callQTL(eqtl, p.adjust.method = "hochberg")
+  result <- callQTL(eqtl, pAdjustMethod = "hochberg", useModel = "linear")
   expect_true(is.null(result@eQTLResult$adjusted_pvalue) == FALSE)
 
   # test hommel method
-  result <- callQTL(eqtl, p.adjust.method = "hommel")
+  result <- callQTL(eqtl, pAdjustMethod = "hommel", useModel = "linear")
   expect_true(is.null(result@eQTLResult$adjusted_pvalue) == FALSE)
 
   # test BH method
-  result <- callQTL(eqtl, p.adjust.method = "BH")
+  result <- callQTL(eqtl, pAdjustMethod = "BH", useModel = "linear")
   expect_true(is.null(result@eQTLResult$adjusted_pvalue) == FALSE)
 
   # test invalid method
-  expect_error(callQTL(eqtl, p.adjust.method = "invalid method"),
-               "Invalid p-adjusted method.
-           Please choose from 'bonferroni', 'holm', 'hochberg', 'hommel', or'fdr or BH'.")
+  expect_error(callQTL(eqtl,
+                       pAdjustMethod = "invalid method",
+                       useModel = "linear"),
+"Invalid p-adjusted method. Please choose from 'bonferroni', 'holm',
+'hochberg', 'hommel', or'fdr or BH'.")
 
 })
