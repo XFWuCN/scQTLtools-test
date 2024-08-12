@@ -10,7 +10,8 @@
 #' snpDataset <- 'hsapiens_snp'
 #' snps_loc <- checkSNPList(
 #'   snpList = snpList,
-#'   snpDataset = snpDataset)
+#'   snpDataset = snpDataset
+#'   )
 checkSNPList <- function(snpList, snpDataset) {
     if (grepl("^rs", snpList[[1]][1])) {
         createSNPsLoc(snpList, snpDataset)
